@@ -10,12 +10,11 @@
   },
   "dependencies": {
     "applesauce-core": "^4.0.0",
-    "applesauce-extra": "0.0.0-next-20251009104432",
     "nostr-tools": "^2.17.0",
     "solid-js": "^1.9.9",
     "tailwindcss": "^4.1.14",
     "window.nostr.js": "^0.5.0",
-    "window.nostrdb.js": "^0.2.3"
+    "window.nostrdb.js": "^0.3.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.14",
