@@ -1,0 +1,20 @@
+{
+  "relays": [
+    "wss://relay.damus.io",
+    "wss://relay.primal.net",
+    "wss://nostrue.com"
+  ],
+  "servers": [
+    "https://cdn.hzrd149.com",
+    "https://nostr.download",
+    "https://blossom.primal.net"
+  ],
+  "profile": {
+    "name": "Backyard Explorer",
+    "display_name": "Backyard Explorer",
+    "about": "Example search app for exploring your local relay"
+  },
+  "publishProfile": true,
+  "publishRelayList": true,
+  "publishServerList": true
+}
