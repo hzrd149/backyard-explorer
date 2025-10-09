@@ -1,0 +1,30 @@
+{
+  "name": "backyard-exporer",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "applesauce-core": "^4.0.0",
+    "applesauce-extra": "0.0.0-next-20251009104432",
+    "nostr-tools": "^2.17.0",
+    "solid-js": "^1.9.9",
+    "tailwindcss": "^4.1.14",
+    "window.nostr.js": "^0.5.0",
+    "window.nostrdb.js": "^0.2.3"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.14",
+    "@types/node": "^24.6.0",
+    "daisyui": "^5.1.27",
+    "prettier": "^3.6.2",
+    "typescript": "~5.9.3",
+    "vite": "^7.1.7",
+    "vite-plugin-solid": "^2.11.8"
+  },
+  "packageManager": "pnpm@9.15.6"
+}
