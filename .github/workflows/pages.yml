@@ -41,7 +41,7 @@ jobs:
         run: pnpm install
 
       - name: Build
-        run: pnpm build --base /backyard-explorer
+        run: pnpm build --base /nostr-backyard-explorer
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
