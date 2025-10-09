@@ -33,6 +33,38 @@ export async function isSearchSupported(): Promise<boolean> {
   return await checkSearchSupport();
 }
 
+// Cache for lookup support status
+let lookupSupported: boolean | null = null;
+
+// Check if lookup is supported by the database
+async function checkLookupSupport(): Promise<boolean> {
+  if (lookupSupported !== null) {
+    return lookupSupported;
+  }
+
+  try {
+    const db = window.nostrdb;
+    if (!db) {
+      lookupSupported = false;
+      return false;
+    }
+
+    const features = await db.supports();
+    // @ts-ignore
+    lookupSupported = features.includes("lookup");
+    return lookupSupported;
+  } catch (error) {
+    console.error("Failed to check lookup support:", error);
+    lookupSupported = false;
+    return false;
+  }
+}
+
+// Check if lookup is supported (cached)
+export async function isLookupSupported(): Promise<boolean> {
+  return await checkLookupSupport();
+}
+
 // Check if a query requires search functionality (has search text)
 export function requiresSearch(query: string): boolean {
   const parsedQuery = parseQuery(query);

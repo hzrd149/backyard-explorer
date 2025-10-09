@@ -47,7 +47,6 @@ export const searchExamples = [
   "essay by:npub1sfhflz2msx45rfzjyf5tyj0x35pv4qtq3hh4v2jf8nhrtl79cavsl2ymqt",
 
   // Kinds filter examples
-  "is:bookmark by:hzrd",
   "is:file",
   "is:repost by:dor",
   "is:muted by:carvalho",

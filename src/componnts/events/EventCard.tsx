@@ -4,6 +4,8 @@ import NoteCard from "./NoteCard";
 import ContactListCard from "./ContactListCard";
 import MetadataCard from "./MetadataCard";
 import ArticleCard from "./ArticleCard";
+import UserAvatar from "../UserAvatar";
+import UserName from "../UserName";
 
 interface EventCardProps {
   event: NostrEvent;
@@ -39,19 +41,29 @@ function GenericEventCard({ event }: { event: NostrEvent }) {
   return (
     <div class="card bg-base-100 shadow-sm border border-base-300 hover:shadow-md transition-shadow">
       <div class="card-body p-4">
-        <div class="flex items-start gap-4">
+        <div class="flex items-start gap-3">
+          <UserAvatar pubkey={event.pubkey} size="sm" />
           <div class="flex-1 min-w-0 overflow-hidden">
             <div class="flex items-center justify-between mb-2">
-              <h3 class="text-lg font-semibold">Event Kind {event.kind}</h3>
-              <div class="badge badge-outline text-xs">
-                {event.pubkey.slice(0, 8)}...
+              <div class="flex items-center gap-2">
+                <UserName
+                  pubkey={event.pubkey}
+                  showPubkey={false}
+                  maxLength={15}
+                  class="font-medium"
+                />
+                <div class="badge badge-outline text-xs">
+                  Event Kind {event.kind}
+                </div>
               </div>
+              <span class="text-xs text-base-content/50">
+                {formatDate(event.created_at)}
+              </span>
             </div>
             <p class="text-base-content/70 text-sm mb-2">
               {event.content || "No content"}
             </p>
             <div class="flex items-center gap-4 text-xs text-base-content/50">
-              <span>Created: {formatDate(event.created_at)}</span>
               <span>ID: {event.id.slice(0, 12)}...</span>
             </div>
           </div>
