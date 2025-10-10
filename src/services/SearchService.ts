@@ -1,4 +1,5 @@
 import type { StreamHandlers } from "../interface";
+import type { ProfilePointer } from "nostr-tools/nip19";
 import { parseQuery, queryToFiltersWithResolution } from "./QueryParser";
 
 // Cache for search support status
@@ -71,6 +72,12 @@ export function requiresSearch(query: string): boolean {
   return parsedQuery.searchText.trim().length > 0;
 }
 
+// Check if a query requires profile lookup functionality
+export function requiresProfileLookup(query: string): boolean {
+  const parsedQuery = parseQuery(query);
+  return parsedQuery.profileLookup.length > 0;
+}
+
 // Search for events using the filters method with username resolution
 export async function searchEvents(query: string, handlers: StreamHandlers) {
   const db = window.nostrdb;
@@ -141,5 +148,41 @@ export async function searchEventsWithSubscription(
     console.error("Search failed:", error);
     handlers.error?.(error as Error);
     return null;
+  }
+}
+
+// Search for profiles using the lookup method
+export async function searchProfiles(query: string): Promise<ProfilePointer[]> {
+  const db = window.nostrdb;
+  
+  if (!db) {
+    throw new Error("NostrDB not available");
+  }
+
+  try {
+    // Parse the query to extract profile lookup terms
+    const parsedQuery = parseQuery(query);
+    
+    if (parsedQuery.profileLookup.length === 0) {
+      throw new Error("No profile lookup terms found in query");
+    }
+
+    // Check if lookup is supported
+    const features = await db.supports();
+    if (!features.includes("lookup")) {
+      throw new Error("Lookup feature not supported by database");
+    }
+
+    // Use the first profile lookup term (limit to 10 results)
+    const searchTerm = parsedQuery.profileLookup[0];
+    console.log(`Looking up profiles for: "${searchTerm}"`);
+    
+    const results = await db.lookup(searchTerm, 10);
+    console.log(`Found ${results.length} profile results:`, results);
+    
+    return results;
+  } catch (error) {
+    console.error("Profile lookup failed:", error);
+    throw error;
   }
 }

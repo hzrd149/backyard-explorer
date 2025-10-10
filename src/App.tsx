@@ -1,18 +1,23 @@
 import { createSignal, onMount, For, createEffect } from "solid-js";
 import type { NostrEvent } from "nostr-tools";
+import type { ProfilePointer } from "nostr-tools/nip19";
 import SearchBar from "./componnts/SearchBar";
 import EventCard from "./componnts/events/EventCard";
 import SearchWarning from "./componnts/SearchWarning";
+import ProfileLookupResults from "./componnts/ProfileLookupResults";
 import {
   isSearchSupported,
   requiresSearch,
+  requiresProfileLookup,
   searchEvents,
   searchEventsWithSubscription,
+  searchProfiles,
 } from "./services/SearchService";
 import { useSearchQuery } from "./services/URLState";
 
 function App() {
   const [events, setEvents] = createSignal<NostrEvent[]>([]);
+  const [profiles, setProfiles] = createSignal<ProfilePointer[]>([]);
   const [isLoading, setIsLoading] = createSignal(false);
   const [searchSupported, setSearchSupported] = createSignal<boolean | null>(
     null,
@@ -34,6 +39,7 @@ function App() {
       await performSearch(currentQuery);
     } else {
       setEvents([]);
+      setProfiles([]);
       setError(null);
     }
   });
@@ -41,14 +47,26 @@ function App() {
   const performSearch = async (searchQuery: string) => {
     if (!searchQuery.trim()) {
       setEvents([]);
+      setProfiles([]);
       return;
     }
 
     setIsLoading(true);
     setError(null);
     setEvents([]);
+    setProfiles([]);
 
     try {
+      // Check if this is a profile lookup query
+      if (requiresProfileLookup(searchQuery)) {
+        console.log("Performing profile lookup for:", searchQuery);
+        const profileResults = await searchProfiles(searchQuery);
+        setProfiles(profileResults);
+        setIsLoading(false);
+        return;
+      }
+
+      // Regular event search
       const subscription = await searchEvents(searchQuery, {
         event: (event: NostrEvent) => {
           setEvents((prev) => [...prev, event]);
@@ -109,7 +127,8 @@ function App() {
                 <code class="bg-base-300 px-2 py-1 rounded">kind:1</code>,{" "}
                 <code class="bg-base-300 px-2 py-1 rounded">k:3</code>, by
                 author:{" "}
-                <code class="bg-base-300 px-2 py-1 rounded">by:username</code>
+                <code class="bg-base-300 px-2 py-1 rounded">by:username</code>, or lookup profiles:{" "}
+                <code class="bg-base-300 px-2 py-1 rounded">p:username</code>
               </p>
             </div>
 
@@ -239,23 +258,44 @@ function App() {
               </div>
             )}
 
-            <div class="space-y-4 max-w-4xl mx-auto">
-              <For each={events()}>
-                {(event) => <EventCard event={event} />}
-              </For>
-            </div>
+            {/* Show profile lookup results if we have any */}
+            {profiles().length > 0 && (
+              <div class="mb-8">
+                <ProfileLookupResults 
+                  profiles={profiles()} 
+                  isLoading={isLoading()} 
+                  error={error()} 
+                />
+              </div>
+            )}
 
-            {events().length === 0 &&
+            {/* Show event results if we have any */}
+            {events().length > 0 && (
+              <div class="space-y-4 max-w-4xl mx-auto">
+                <h2 class="text-2xl font-bold mb-4">Event Results</h2>
+                <For each={events()}>
+                  {(event) => <EventCard event={event} />}
+                </For>
+              </div>
+            )}
+
+            {/* Show no results message if we have neither profiles nor events */}
+            {profiles().length === 0 &&
+              events().length === 0 &&
               !isLoading() &&
               searchSupported() !== null && (
                 <div class="text-center text-base-content/50 mt-8">
                   <p>
-                    No events found. Try searching for events, filter by kind
+                    No results found. Try searching for events, filter by kind
                     with{" "}
                     <code class="bg-base-300 px-2 py-1 rounded">kind:1</code>{" "}
-                    for notes, or search by author with{" "}
+                    for notes, search by author with{" "}
                     <code class="bg-base-300 px-2 py-1 rounded">
                       by:username
+                    </code>
+                    , or lookup profiles with{" "}
+                    <code class="bg-base-300 px-2 py-1 rounded">
+                      p:username
                     </code>
                     .
                   </p>

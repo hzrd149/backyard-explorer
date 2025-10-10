@@ -1,4 +1,5 @@
 import type { NostrEvent } from "nostr-tools";
+import { npubEncode } from "nostr-tools/nip19";
 import UserAvatar from "../UserAvatar";
 import UserName from "../UserName";
 
@@ -17,9 +18,11 @@ export default function ProfileCard(props: ProfileCardProps) {
 
   const about = () => profileData().about || "";
   const website = () => profileData().website || "";
+  const nip05 = () => profileData().nip05 || "";
+  const npub = () => npubEncode(props.profile.pubkey);
 
   return (
-    <div class="card bg-base-100 shadow-sm border border-base-300 hover:shadow-md transition-shadow">
+    <div class="card bg-base-100 shadow-sm border border-base-300 hover:shadow-md transition-shadow relative">
       <div class="card-body p-4">
         <div class="flex items-start gap-4">
           <UserAvatar pubkey={props.profile.pubkey} size="md" />
@@ -30,6 +33,11 @@ export default function ProfileCard(props: ProfileCardProps) {
               maxLength={20}
               class="block mb-2"
             />
+            {nip05() && (
+              <div class="text-base-content/60 text-xs mb-2 font-mono">
+                {nip05()}
+              </div>
+            )}
             {about() && (
               <p class="text-base-content/70 text-sm mb-2 line-clamp-2">
                 {about()}
@@ -47,6 +55,17 @@ export default function ProfileCard(props: ProfileCardProps) {
             )}
           </div>
         </div>
+      </div>
+      <div class="absolute bottom-2 right-2">
+        <a
+          href={`https://npub.world/${npub()}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="text-xs text-base-content/50 hover:text-base-content/70 transition-colors"
+          title="View on npub.world"
+        >
+          npub.world
+        </a>
       </div>
     </div>
   );

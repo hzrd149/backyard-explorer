@@ -8,6 +8,7 @@ export interface ParsedQuery {
   profiles: string[];
   usernames: string[]; // New field for usernames that need to be resolved
   hashtags: string[]; // New field for hashtags
+  profileLookup: string[]; // New field for p:<name> profile lookups
   since?: number;
   until?: number;
   limit?: number;
@@ -212,6 +213,7 @@ export function parseQuery(query: string): ParsedQuery {
     profiles: [],
     usernames: [],
     hashtags: [],
+    profileLookup: [],
   };
 
   // Split query into parts, handling quoted strings
@@ -233,6 +235,11 @@ export function parseQuery(query: string): ParsedQuery {
       const username = part.split(":")[1];
       if (username) {
         result.usernames.push(username);
+      }
+    } else if (part.startsWith("p:")) {
+      const profileName = part.split(":")[1];
+      if (profileName) {
+        result.profileLookup.push(profileName);
       }
     } else if (part.startsWith("author:") || part.startsWith("a:")) {
       const author = part.split(":")[1];
