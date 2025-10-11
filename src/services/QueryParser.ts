@@ -1,4 +1,5 @@
 import type { Filter } from "nostr-tools";
+import mime from "mime";
 
 export interface ParsedQuery {
   searchText: string;
@@ -9,6 +10,7 @@ export interface ParsedQuery {
   usernames: string[]; // New field for usernames that need to be resolved
   hashtags: string[]; // New field for hashtags
   profileLookup: string[]; // New field for p:<name> profile lookups
+  mimeTypes: string[]; // New field for m:<ext/mime> MIME type searches (uses #m filter)
   since?: number;
   until?: number;
   limit?: number;
@@ -203,6 +205,136 @@ function tokenize(query: string): string[] {
   return tokens;
 }
 
+/**
+ * Expand MIME type or file extension to actual MIME types
+ *
+ * Supports:
+ * - File extensions: m:jpg, m:.png, m:pdf
+ * - Full MIME types: m:image/jpeg, m:application/pdf
+ * - Wildcard MIME types: m:image/, m:video/, m:audio/
+ *
+ * Wildcard types expand to common MIME types for that category.
+ * For example, m:image/ expands to image/jpeg, image/png, image/gif, etc.
+ */
+function expandMimeType(input: string): string[] {
+  const result: string[] = [];
+
+  // Remove leading dot if present (e.g., ".jpg" -> "jpg")
+  const cleanInput = input.startsWith(".") ? input.substring(1) : input;
+
+  // If it ends with "/", treat as wildcard MIME type (e.g., "image/" -> all image/* types)
+  if (cleanInput.endsWith("/")) {
+    const prefix = cleanInput.slice(0, -1); // Remove trailing slash
+
+    // Common MIME type prefixes and their expansions
+    const mimeTypeExpansions: Record<string, string[]> = {
+      image: [
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+        "image/svg+xml",
+        "image/bmp",
+        "image/tiff",
+        "image/ico",
+        "image/x-icon",
+      ],
+      video: [
+        "video/mp4",
+        "video/avi",
+        "video/mov",
+        "video/wmv",
+        "video/flv",
+        "video/webm",
+        "video/mkv",
+        "video/3gp",
+        "video/quicktime",
+      ],
+      audio: [
+        "audio/mp3",
+        "audio/mpeg",
+        "audio/wav",
+        "audio/flac",
+        "audio/aac",
+        "audio/ogg",
+        "audio/m4a",
+        "audio/wma",
+        "audio/opus",
+      ],
+      text: [
+        "text/plain",
+        "text/html",
+        "text/css",
+        "text/javascript",
+        "text/json",
+        "text/xml",
+        "text/csv",
+        "text/markdown",
+        "text/yaml",
+      ],
+      application: [
+        "application/pdf",
+        "application/zip",
+        "application/json",
+        "application/xml",
+        "application/javascript",
+        "application/octet-stream",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      ],
+    };
+
+    if (mimeTypeExpansions[prefix]) {
+      result.push(...mimeTypeExpansions[prefix]);
+    } else {
+      // If we don't have a predefined expansion, just add the prefix with wildcard
+      result.push(`${prefix}/*`);
+    }
+  } else {
+    // Check if it's already a MIME type (contains "/")
+    if (cleanInput.includes("/")) {
+      result.push(cleanInput);
+    } else {
+      // Treat as file extension and get MIME type
+      const mimeType = mime.getType(cleanInput);
+      if (mimeType) {
+        result.push(mimeType);
+      } else {
+        // If mime package doesn't recognize it, try common extensions
+        const commonExtensions: Record<string, string> = {
+          jpg: "image/jpeg",
+          jpeg: "image/jpeg",
+          png: "image/png",
+          gif: "image/gif",
+          webp: "image/webp",
+          svg: "image/svg+xml",
+          mp4: "video/mp4",
+          avi: "video/avi",
+          mov: "video/quicktime",
+          mp3: "audio/mpeg",
+          wav: "audio/wav",
+          pdf: "application/pdf",
+          zip: "application/zip",
+          txt: "text/plain",
+          html: "text/html",
+          css: "text/css",
+          js: "application/javascript",
+          json: "application/json",
+        };
+
+        if (commonExtensions[cleanInput.toLowerCase()]) {
+          result.push(commonExtensions[cleanInput.toLowerCase()]);
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
 // Parse a query string into a structured query object
 export function parseQuery(query: string): ParsedQuery {
   const result: ParsedQuery = {
@@ -214,6 +346,7 @@ export function parseQuery(query: string): ParsedQuery {
     usernames: [],
     hashtags: [],
     profileLookup: [],
+    mimeTypes: [],
   };
 
   // Split query into parts, handling quoted strings
@@ -240,6 +373,12 @@ export function parseQuery(query: string): ParsedQuery {
       const profileName = part.split(":")[1];
       if (profileName) {
         result.profileLookup.push(profileName);
+      }
+    } else if (part.startsWith("m:")) {
+      const mimeTypeOrExt = part.split(":")[1];
+      if (mimeTypeOrExt) {
+        const mimeTypes = expandMimeType(mimeTypeOrExt);
+        result.mimeTypes.push(...mimeTypes);
       }
     } else if (part.startsWith("author:") || part.startsWith("a:")) {
       const author = part.split(":")[1];
@@ -409,6 +548,22 @@ export function queryToFilters(parsedQuery: ParsedQuery): Filter[] {
       }
       // Add hashtags to the #t array
       baseFilter["#t"].push(...validHashtags);
+    }
+  }
+
+  // Add MIME types as #m tags if specified and not empty
+  if (parsedQuery.mimeTypes && parsedQuery.mimeTypes.length > 0) {
+    // Filter out empty or invalid MIME types
+    const validMimeTypes = parsedQuery.mimeTypes.filter(
+      (mimeType) => mimeType && mimeType.trim(),
+    );
+    if (validMimeTypes.length > 0) {
+      // Initialize #m array if it doesn't exist
+      if (!baseFilter["#m"]) {
+        baseFilter["#m"] = [];
+      }
+      // Add MIME types to the #m array
+      baseFilter["#m"].push(...validMimeTypes);
     }
   }
 

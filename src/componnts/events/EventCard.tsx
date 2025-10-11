@@ -4,6 +4,7 @@ import NoteCard from "./NoteCard";
 import ContactListCard from "./ContactListCard";
 import MetadataCard from "./MetadataCard";
 import ArticleCard from "./ArticleCard";
+import FileMetadataCard from "./FileMetadataCard";
 import UserAvatar from "../UserAvatar";
 import UserName from "../UserName";
 
@@ -24,6 +25,8 @@ export default function EventCard(props: EventCardProps) {
         return <MetadataCard metadata={props.event} />;
       case 30023:
         return <ArticleCard article={props.event} />;
+      case 1063:
+        return <FileMetadataCard fileMetadata={props.event} />;
       default:
         return <GenericEventCard event={props.event} />;
     }

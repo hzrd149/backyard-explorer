@@ -57,6 +57,19 @@ export const searchExamples = [
   'is:highlight "proof of work"',
   "is:highlight (bitcoin OR nostr)",
   "is:highlight (by:fiatjaf.com OR by:@f7z.io)",
+
+  // MIME type filter examples
+  "m:jpg",
+  "m:png",
+  "m:image/",
+  "m:video/",
+  "m:audio/",
+  "m:pdf",
+  "m:mp4",
+  "m:image/jpeg",
+  "m:application/pdf",
+  "m:image/ m:video/",
+  "m:jpg m:png",
 ] as const;
 
 // Examples that require login to work properly
