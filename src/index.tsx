@@ -3,6 +3,8 @@ import { render } from "solid-js/web";
 import "./index.css";
 import App from "./App.tsx";
 
+import "applesauce-core/helpers/picture-post";
+
 const root = document.getElementById("root");
 
 setTimeout(async () => {

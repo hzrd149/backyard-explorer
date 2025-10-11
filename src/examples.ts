@@ -70,6 +70,14 @@ export const searchExamples = [
   "m:application/pdf",
   "m:image/ m:video/",
   "m:jpg m:png",
+
+  // Picture post examples (NIP-68)
+  "is:picture",
+  "is:picture by:dergigi",
+  "#photography is:picture",
+  "#artstr is:picture",
+  "m:image/jpeg is:picture",
+  "m:image/png is:picture",
 ] as const;
 
 // Examples that require login to work properly

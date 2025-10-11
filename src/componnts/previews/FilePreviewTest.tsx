@@ -1,4 +1,5 @@
 import type { NostrEvent } from "nostr-tools";
+import { For } from "solid-js";
 import FileMetadataCard from "../events/FileMetadataCard";
 
 // Sample file metadata events for testing different preview types
@@ -160,9 +161,9 @@ export function FilePreviewTest() {
         This demonstrates all the different file preview components for kind
         1063 file metadata events.
       </p>
-      {sampleFileMetadataEvents.map((event) => (
-        <FileMetadataCard key={event.id} fileMetadata={event} />
-      ))}
+      <For each={sampleFileMetadataEvents}>
+        {(event) => <FileMetadataCard fileMetadata={event} />}
+      </For>
     </div>
   );
 }

@@ -32,19 +32,19 @@ export default function FileMetadataCard(props: FileMetadataCardProps) {
   };
 
   // Parse file metadata using applesauce-core helper
-  const fileMetadata: FileMetadata = getFileMetadata(props.fileMetadata);
+  const metadata: FileMetadata = getFileMetadata(props.fileMetadata);
 
   // Determine if this is an image or video
-  const isImage = fileMetadata.type?.startsWith("image/");
-  const isVideo = fileMetadata.type?.startsWith("video/");
-  const isAudio = fileMetadata.type?.startsWith("audio/");
+  const isImage = metadata.type?.startsWith("image/");
+  const isVideo = metadata.type?.startsWith("video/");
+  const isAudio = metadata.type?.startsWith("audio/");
 
   // Get file extension from URL or MIME type using mime package
   const getFileExtension = () => {
     // Try to get extension from URL first
-    if (fileMetadata.url) {
+    if (metadata.url) {
       try {
-        const urlPath = new URL(fileMetadata.url).pathname;
+        const urlPath = new URL(metadata.url).pathname;
         const extension = urlPath.split(".").pop();
         if (extension && extension.length <= 5) {
           return extension.toUpperCase();
@@ -55,8 +55,8 @@ export default function FileMetadataCard(props: FileMetadataCardProps) {
     }
 
     // Use mime package to get extension from MIME type
-    if (fileMetadata.type) {
-      const extension = mime.getExtension(fileMetadata.type);
+    if (metadata.type) {
+      const extension = mime.getExtension(metadata.type);
       if (extension) {
         return extension.toUpperCase();
       }
@@ -92,49 +92,45 @@ export default function FileMetadataCard(props: FileMetadataCardProps) {
             </div>
 
             {/* File Preview */}
-            {fileMetadata.url && (
+            {metadata.url && (
               <div class="mb-3">
                 {isImage ? (
                   <ImagePreview
-                    url={fileMetadata.url}
-                    alt={fileMetadata.alt || props.fileMetadata.content}
-                    dimensions={fileMetadata.dimensions}
+                    url={metadata.url}
+                    alt={metadata.alt || props.fileMetadata.content}
+                    dimensions={metadata.dimensions}
                   />
                 ) : isVideo ? (
                   <VideoPreview
-                    url={fileMetadata.url}
-                    thumbnail={fileMetadata.thumbnail}
-                    previewImage={fileMetadata.image}
-                    alt={fileMetadata.alt || props.fileMetadata.content}
+                    url={metadata.url}
+                    thumbnail={metadata.thumbnail}
+                    previewImage={metadata.image}
+                    alt={metadata.alt || props.fileMetadata.content}
                   />
                 ) : isAudio ? (
                   <AudioPreview
-                    url={fileMetadata.url}
+                    url={metadata.url}
                     title={props.fileMetadata.content}
                   />
-                ) : fileMetadata.type?.includes("application/pdf") ||
-                  fileMetadata.type?.includes("text/") ||
-                  fileMetadata.type?.includes("application/zip") ? (
+                ) : metadata.type?.includes("application/pdf") ||
+                  metadata.type?.includes("text/") ||
+                  metadata.type?.includes("application/zip") ? (
                   <DocumentPreview
-                    url={fileMetadata.url}
-                    mimeType={fileMetadata.type}
+                    url={metadata.url}
+                    mimeType={metadata.type}
                     title={props.fileMetadata.content}
                     size={
-                      fileMetadata.size
-                        ? formatFileSize(fileMetadata.size)
-                        : undefined
+                      metadata.size ? formatFileSize(metadata.size) : undefined
                     }
                   />
                 ) : (
                   <GenericFilePreview
-                    url={fileMetadata.url}
-                    mimeType={fileMetadata.type}
+                    url={metadata.url}
+                    mimeType={metadata.type}
                     fileExtension={fileExtension}
                     title={props.fileMetadata.content}
                     size={
-                      fileMetadata.size
-                        ? formatFileSize(fileMetadata.size)
-                        : undefined
+                      metadata.size ? formatFileSize(metadata.size) : undefined
                     }
                   />
                 )}
@@ -149,40 +145,38 @@ export default function FileMetadataCard(props: FileMetadataCardProps) {
             )}
 
             {/* Summary */}
-            {fileMetadata.summary && (
+            {metadata.summary && (
               <p class="text-base-content/60 text-xs mb-3 italic">
-                {fileMetadata.summary}
+                {metadata.summary}
               </p>
             )}
 
             {/* File Details */}
             <div class="bg-base-200 rounded-lg p-3 mb-3">
               <div class="grid grid-cols-2 gap-2 text-xs">
-                {fileMetadata.type && (
+                {metadata.type && (
                   <div>
                     <span class="text-base-content/50">Type:</span>
-                    <span class="ml-1 font-mono">{fileMetadata.type}</span>
+                    <span class="ml-1 font-mono">{metadata.type}</span>
                   </div>
                 )}
-                {fileMetadata.size && (
+                {metadata.size && (
                   <div>
                     <span class="text-base-content/50">Size:</span>
-                    <span class="ml-1">
-                      {formatFileSize(fileMetadata.size)}
-                    </span>
+                    <span class="ml-1">{formatFileSize(metadata.size)}</span>
                   </div>
                 )}
-                {fileMetadata.dimensions && (
+                {metadata.dimensions && (
                   <div>
                     <span class="text-base-content/50">Dimensions:</span>
-                    <span class="ml-1">{fileMetadata.dimensions}</span>
+                    <span class="ml-1">{metadata.dimensions}</span>
                   </div>
                 )}
-                {fileMetadata.sha256 && (
+                {metadata.sha256 && (
                   <div class="col-span-2">
                     <span class="text-base-content/50">Hash:</span>
                     <span class="ml-1 font-mono text-xs">
-                      {fileMetadata.sha256.slice(0, 16)}...
+                      {metadata.sha256.slice(0, 16)}...
                     </span>
                   </div>
                 )}
@@ -191,9 +185,9 @@ export default function FileMetadataCard(props: FileMetadataCardProps) {
 
             {/* Action Buttons */}
             <div class="flex gap-2">
-              {fileMetadata.url && (
+              {metadata.url && (
                 <a
-                  href={fileMetadata.url}
+                  href={metadata.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   class="btn btn-primary btn-sm flex-1"
@@ -207,9 +201,9 @@ export default function FileMetadataCard(props: FileMetadataCardProps) {
                         : "Download"}
                 </a>
               )}
-              {fileMetadata.magnet && (
+              {metadata.magnet && (
                 <a
-                  href={fileMetadata.magnet}
+                  href={metadata.magnet}
                   class="btn btn-outline btn-sm"
                   title="Download via Magnet Link"
                 >
@@ -219,15 +213,13 @@ export default function FileMetadataCard(props: FileMetadataCardProps) {
             </div>
 
             {/* Additional Info */}
-            {(fileMetadata.originalSha256 || fileMetadata.infohash) && (
+            {(metadata.originalSha256 || metadata.infohash) && (
               <div class="mt-2 text-xs text-base-content/40">
-                {fileMetadata.originalSha256 && (
-                  <div>
-                    Original: {fileMetadata.originalSha256.slice(0, 8)}...
-                  </div>
+                {metadata.originalSha256 && (
+                  <div>Original: {metadata.originalSha256.slice(0, 8)}...</div>
                 )}
-                {fileMetadata.infohash && (
-                  <div>Torrent: {fileMetadata.infohash.slice(0, 8)}...</div>
+                {metadata.infohash && (
+                  <div>Torrent: {metadata.infohash.slice(0, 8)}...</div>
                 )}
               </div>
             )}

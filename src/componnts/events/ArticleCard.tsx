@@ -1,20 +1,23 @@
 import type { NostrEvent } from "nostr-tools";
-import { naddrEncode } from "nostr-tools/nip19";
+import { naddrEncode, npubEncode } from "nostr-tools/nip19";
 import UserAvatar from "../UserAvatar";
 import UserName from "../UserName";
+import Hashtag from "../Hashtag";
 
 interface ArticleCardProps {
   article: NostrEvent;
 }
 
 export default function ArticleCard(props: ArticleCardProps) {
+  const { article } = props;
+
   const formatDate = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleString();
   };
 
   // Extract metadata from tags
   const getTagValue = (tagName: string): string | undefined => {
-    const tag = props.article.tags?.find((tag) => tag[0] === tagName);
+    const tag = article.tags?.find((tag) => tag[0] === tagName);
     return tag?.[1];
   };
 
@@ -30,7 +33,7 @@ export default function ArticleCard(props: ArticleCardProps) {
     try {
       const naddr = naddrEncode({
         kind: 30023,
-        pubkey: props.article.pubkey,
+        pubkey: article.pubkey,
         identifier: identifier,
       });
       return `nostr:${naddr}`;
@@ -46,12 +49,12 @@ export default function ArticleCard(props: ArticleCardProps) {
     <div class="card bg-base-100 shadow-sm border border-base-300 hover:shadow-md transition-shadow">
       <div class="card-body p-4">
         <div class="flex items-start gap-3">
-          <UserAvatar pubkey={props.article.pubkey} size="sm" />
+          <UserAvatar pubkey={article.pubkey} size="sm" />
           <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between mb-2">
               <div class="flex items-center gap-2">
                 <UserName
-                  pubkey={props.article.pubkey}
+                  pubkey={article.pubkey}
                   showPubkey={false}
                   maxLength={15}
                   class="font-medium"
@@ -61,7 +64,7 @@ export default function ArticleCard(props: ArticleCardProps) {
               <span class="text-xs text-base-content/50">
                 {publishedAt
                   ? formatDate(parseInt(publishedAt))
-                  : formatDate(props.article.created_at)}
+                  : formatDate(article.created_at)}
               </span>
             </div>
 
@@ -92,13 +95,13 @@ export default function ArticleCard(props: ArticleCardProps) {
             )}
 
             {/* Article Tags */}
-            {props.article.tags && props.article.tags.length > 0 && (
+            {article.tags && article.tags.length > 0 && (
               <div class="flex flex-wrap gap-1 mb-3">
-                {props.article.tags
+                {article.tags
                   .filter((tag) => tag[0] === "t" && tag[1])
                   .slice(0, 5)
                   .map((tag) => (
-                    <span class="badge badge-ghost badge-sm">#{tag[1]}</span>
+                    <Hashtag tag={tag[1]} />
                   ))}
               </div>
             )}

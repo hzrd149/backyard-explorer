@@ -8,9 +8,11 @@ interface ProfileCardProps {
 }
 
 export default function ProfileCard(props: ProfileCardProps) {
+  const { profile } = props;
+
   const profileData = () => {
     try {
-      return JSON.parse(props.profile.content);
+      return JSON.parse(profile.content);
     } catch {
       return {};
     }
@@ -19,16 +21,16 @@ export default function ProfileCard(props: ProfileCardProps) {
   const about = () => profileData().about || "";
   const website = () => profileData().website || "";
   const nip05 = () => profileData().nip05 || "";
-  const npub = () => npubEncode(props.profile.pubkey);
+  const npub = () => npubEncode(profile.pubkey);
 
   return (
     <div class="card bg-base-100 shadow-sm border border-base-300 hover:shadow-md transition-shadow relative">
       <div class="card-body p-4">
         <div class="flex items-start gap-4">
-          <UserAvatar pubkey={props.profile.pubkey} size="md" />
+          <UserAvatar pubkey={profile.pubkey} size="md" />
           <div class="flex-1 min-w-0">
             <UserName
-              pubkey={props.profile.pubkey}
+              pubkey={profile.pubkey}
               showPubkey={true}
               maxLength={20}
               class="block mb-2"

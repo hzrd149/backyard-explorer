@@ -1,5 +1,6 @@
 import type { Filter } from "nostr-tools";
 import mime from "mime";
+import { normalizeToPubkey } from "applesauce-core/helpers/pointers";
 
 export interface ParsedQuery {
   searchText: string;
@@ -171,6 +172,23 @@ const EVENT_KIND_MAP: Record<string, number> = {
   media_starter_pack: 39092,
   web_bookmark: 39701,
 };
+
+// Helper function to detect NIP-19 identifiers (npub, nprofile)
+function isNIP19Identifier(str: string): boolean {
+  return str.startsWith("npub1") || str.startsWith("nprofile1");
+}
+
+// Helper function to convert NIP-19 identifier to hex pubkey
+function convertNIP19ToPubkey(nip19Str: string): string {
+  try {
+    return normalizeToPubkey(nip19Str);
+  } catch (error) {
+    // If conversion fails, return the original string
+    // This allows the system to fall back to username resolution
+    console.warn(`Failed to convert NIP-19 identifier "${nip19Str}":`, error);
+    return nip19Str;
+  }
+}
 
 // Helper function to tokenize query string
 function tokenize(query: string): string[] {
@@ -367,7 +385,15 @@ export function parseQuery(query: string): ParsedQuery {
     } else if (part.startsWith("by:")) {
       const username = part.split(":")[1];
       if (username) {
-        result.usernames.push(username);
+        // Check if it's a NIP-19 identifier (npub or nprofile)
+        if (isNIP19Identifier(username)) {
+          // Convert NIP-19 identifier to hex pubkey and add to authors
+          const hexPubkey = convertNIP19ToPubkey(username);
+          result.authors.push(hexPubkey);
+        } else {
+          // Regular username, add to usernames for resolution
+          result.usernames.push(username);
+        }
       }
     } else if (part.startsWith("p:")) {
       const profileName = part.split(":")[1];

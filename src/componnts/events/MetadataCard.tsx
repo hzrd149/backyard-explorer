@@ -1,19 +1,23 @@
 import type { NostrEvent } from "nostr-tools";
 import { For } from "solid-js";
+import UserAvatar from "../UserAvatar";
+import UserName from "../UserName";
 
 interface MetadataCardProps {
   metadata: NostrEvent;
 }
 
 export default function MetadataCard(props: MetadataCardProps) {
+  const { metadata } = props;
+
   const formatDate = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleString();
   };
 
   const getRelays = () => {
-    if (!props.metadata.tags) return [];
+    if (!metadata.tags) return [];
 
-    return props.metadata.tags
+    return metadata.tags
       .filter((tag) => tag[0] === "r" && tag[1])
       .map((tag) => ({
         url: tag[1],
@@ -28,16 +32,20 @@ export default function MetadataCard(props: MetadataCardProps) {
     <div class="card bg-base-100 shadow-sm border border-base-300 hover:shadow-md transition-shadow">
       <div class="card-body p-4">
         <div class="flex items-start gap-4">
+          <UserAvatar pubkey={metadata.pubkey} size="sm" />
           <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between mb-3">
               <div class="flex items-center gap-2">
+                <UserName
+                  pubkey={metadata.pubkey}
+                  showPubkey={false}
+                  maxLength={15}
+                  class="font-medium"
+                />
                 <div class="badge badge-outline text-xs">Relay List</div>
-                <span class="text-sm text-base-content/70">
-                  {props.metadata.pubkey.slice(0, 8)}...
-                </span>
               </div>
               <span class="text-xs text-base-content/50">
-                {formatDate(props.metadata.created_at)}
+                {formatDate(metadata.created_at)}
               </span>
             </div>
 
