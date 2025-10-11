@@ -10,33 +10,33 @@ interface PicturePostCardProps {
 }
 
 export default function PicturePostCard(props: PicturePostCardProps) {
-  const { picturePost } = props;
-
   // Get the title from the title tag
-  const titleTag = picturePost.tags.find((tag) => tag[0] === "title");
+  const titleTag = props.picturePost.tags.find((tag) => tag[0] === "title");
   const title = titleTag?.[1] || "";
 
   // Get media attachments using the applesauce-core helper
-  const attachments = getPicturePostAttachments(picturePost);
+  const attachments = getPicturePostAttachments(props.picturePost);
 
   // Get hashtags
-  const hashtags = picturePost.tags
+  const hashtags = props.picturePost.tags
     .filter((tag) => tag[0] === "t")
     .map((tag) => tag[1])
     .filter(Boolean);
 
   // Get tagged users (p tags)
-  const taggedUsers = picturePost.tags
+  const taggedUsers = props.picturePost.tags
     .filter((tag) => tag[0] === "p")
     .map((tag) => tag[1])
     .filter(Boolean);
 
   // Get location if present
-  const locationTag = picturePost.tags.find((tag) => tag[0] === "location");
+  const locationTag = props.picturePost.tags.find(
+    (tag) => tag[0] === "location",
+  );
   const location = locationTag?.[1];
 
   // Get content warning if present
-  const contentWarningTag = picturePost.tags.find(
+  const contentWarningTag = props.picturePost.tags.find(
     (tag) => tag[0] === "content-warning",
   );
   const contentWarning = contentWarningTag?.[1];
@@ -50,12 +50,12 @@ export default function PicturePostCard(props: PicturePostCardProps) {
       <div class="card-body p-4">
         {/* Header with user info */}
         <div class="flex items-start gap-3 mb-4">
-          <UserAvatar pubkey={picturePost.pubkey} size="md" />
+          <UserAvatar pubkey={props.picturePost.pubkey} size="md" />
           <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between mb-1">
               <div class="flex items-center gap-2">
                 <UserName
-                  pubkey={picturePost.pubkey}
+                  pubkey={props.picturePost.pubkey}
                   showPubkey={false}
                   maxLength={20}
                   class="font-semibold text-base"
@@ -63,7 +63,7 @@ export default function PicturePostCard(props: PicturePostCardProps) {
                 <div class="badge badge-primary badge-sm">Picture Post</div>
               </div>
               <span class="text-xs text-base-content/50">
-                {formatDate(picturePost.created_at)}
+                {formatDate(props.picturePost.created_at)}
               </span>
             </div>
 
@@ -137,10 +137,10 @@ export default function PicturePostCard(props: PicturePostCardProps) {
         )}
 
         {/* Description */}
-        {picturePost.content && (
+        {props.picturePost.content && (
           <div class="mb-4">
             <p class="text-base-content/80 whitespace-pre-wrap">
-              {picturePost.content}
+              {props.picturePost.content}
             </p>
           </div>
         )}
@@ -179,7 +179,7 @@ export default function PicturePostCard(props: PicturePostCardProps) {
         {/* Footer with event ID */}
         <div class="mt-4 pt-3 border-t border-base-300">
           <div class="flex items-center justify-between text-xs text-base-content/50">
-            <span>Event ID: {picturePost.id.slice(0, 12)}...</span>
+            <span>Event ID: {props.picturePost.id.slice(0, 12)}...</span>
             <span>Kind 20</span>
           </div>
         </div>

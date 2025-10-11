@@ -8,16 +8,14 @@ interface MetadataCardProps {
 }
 
 export default function MetadataCard(props: MetadataCardProps) {
-  const { metadata } = props;
-
   const formatDate = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleString();
   };
 
   const getRelays = () => {
-    if (!metadata.tags) return [];
+    if (!props.metadata.tags) return [];
 
-    return metadata.tags
+    return props.metadata.tags
       .filter((tag) => tag[0] === "r" && tag[1])
       .map((tag) => ({
         url: tag[1],
@@ -32,12 +30,12 @@ export default function MetadataCard(props: MetadataCardProps) {
     <div class="card bg-base-100 shadow-sm border border-base-300 hover:shadow-md transition-shadow">
       <div class="card-body p-4">
         <div class="flex items-start gap-4">
-          <UserAvatar pubkey={metadata.pubkey} size="sm" />
+          <UserAvatar pubkey={props.metadata.pubkey} size="sm" />
           <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between mb-3">
               <div class="flex items-center gap-2">
                 <UserName
-                  pubkey={metadata.pubkey}
+                  pubkey={props.metadata.pubkey}
                   showPubkey={false}
                   maxLength={15}
                   class="font-medium"
@@ -45,7 +43,7 @@ export default function MetadataCard(props: MetadataCardProps) {
                 <div class="badge badge-outline text-xs">Relay List</div>
               </div>
               <span class="text-xs text-base-content/50">
-                {formatDate(metadata.created_at)}
+                {formatDate(props.metadata.created_at)}
               </span>
             </div>
 

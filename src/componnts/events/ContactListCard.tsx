@@ -22,7 +22,6 @@ interface ContactGroup {
 }
 
 export default function ContactListCard(props: ContactListCardProps) {
-  const { contactList } = props;
   const [contactGroups, setContactGroups] = createSignal<ContactGroup[]>([]);
   const [isLoading, setIsLoading] = createSignal(true);
 
@@ -31,9 +30,9 @@ export default function ContactListCard(props: ContactListCardProps) {
   };
 
   const getContacts = () => {
-    if (!contactList.tags) return [];
+    if (!props.contactList.tags) return [];
 
-    return contactList.tags
+    return props.contactList.tags
       .filter((tag) => tag[0] === "p" && tag[1])
       .map((tag) => ({
         pubkey: tag[1],
@@ -117,14 +116,14 @@ export default function ContactListCard(props: ContactListCardProps) {
             <div class="flex items-center justify-between mb-4">
               <div class="flex items-center gap-3">
                 <UserProfile
-                  pubkey={contactList.pubkey}
+                  pubkey={props.contactList.pubkey}
                   avatarSize="sm"
                   maxNameLength={20}
                 />
                 <div class="badge badge-outline text-xs">Contact List</div>
               </div>
               <span class="text-xs text-base-content/50">
-                {formatDate(contactList.created_at)}
+                {formatDate(props.contactList.created_at)}
               </span>
             </div>
 

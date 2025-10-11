@@ -1,5 +1,4 @@
 import type { NostrEvent } from "nostr-tools";
-import { npubEncode } from "nostr-tools/nip19";
 import ProfileCard from "./ProfileCard";
 import NoteCard from "./NoteCard";
 import ContactListCard from "./ContactListCard";
@@ -7,6 +6,7 @@ import MetadataCard from "./MetadataCard";
 import ArticleCard from "./ArticleCard";
 import FileMetadataCard from "./FileMetadataCard";
 import PicturePostCard from "./PicturePostCard";
+import RepostCard from "./RepostCard";
 import UserAvatar from "../UserAvatar";
 import UserName from "../UserName";
 
@@ -23,6 +23,10 @@ export default function EventCard(props: EventCardProps) {
         return <NoteCard note={props.event} />;
       case 3:
         return <ContactListCard contactList={props.event} />;
+      case 6:
+        return <RepostCard repost={props.event} />;
+      case 16:
+        return <RepostCard repost={props.event} />;
       case 20:
         return <PicturePostCard picturePost={props.event} />;
       case 10002:

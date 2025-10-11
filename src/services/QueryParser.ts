@@ -35,6 +35,7 @@ const EVENT_KIND_MAP: Record<string, number> = {
   deletion: 5,
   delete: 5,
   repost: 6,
+  share: 6,
   reaction: 7,
   badge_award: 8,
   chat_message: 9,
