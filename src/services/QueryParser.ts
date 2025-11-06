@@ -1,6 +1,7 @@
 import type { Filter } from "nostr-tools";
 import mime from "mime";
 import { normalizeToPubkey } from "applesauce-core/helpers/pointers";
+import { parseDate } from "chrono-node";
 
 export interface ParsedQuery {
   searchText: string;
@@ -189,6 +190,49 @@ function convertNIP19ToPubkey(nip19Str: string): string {
     console.warn(`Failed to convert NIP-19 identifier "${nip19Str}":`, error);
     return nip19Str;
   }
+}
+
+/**
+ * Parse a date string into a unix timestamp
+ *
+ * Supports:
+ * - Unix timestamps (numeric values): 1234567890
+ * - ISO date strings: 2024-01-01, 2024-01-01T12:00:00Z
+ * - Human-readable dates: yesterday, last monday, 2 days ago, last week
+ *
+ * @param dateStr - The date string to parse
+ * @returns Unix timestamp in seconds, or undefined if parsing fails
+ */
+function parseDateToTimestamp(dateStr: string): number | undefined {
+  // Remove quotes if present (from tokenizer)
+  const cleanStr = dateStr.replace(/^["']|["']$/g, "").trim();
+
+  if (!cleanStr) {
+    return undefined;
+  }
+
+  // Try parsing as a direct unix timestamp (numeric value)
+  const numericValue = parseInt(cleanStr, 10);
+  if (!isNaN(numericValue) && cleanStr === numericValue.toString()) {
+    // If it's a pure number and matches the string, treat it as unix timestamp
+    return numericValue;
+  }
+
+  try {
+    // Try parsing as ISO date or natural language using chrono-node
+    const parsedDate = parseDate(cleanStr);
+
+    if (parsedDate) {
+      // Convert to unix timestamp (seconds)
+      return Math.floor(parsedDate.getTime() / 1000);
+    }
+  } catch (error) {
+    console.error(`Error parsing date "${dateStr}":`, error);
+  }
+
+  // If all parsing attempts fail, return undefined
+  console.warn(`Failed to parse date: "${dateStr}"`);
+  return undefined;
 }
 
 // Helper function to tokenize query string
@@ -423,17 +467,17 @@ export function parseQuery(query: string): ParsedQuery {
           result.tags[tagName].push(tagValue);
         }
       }
-    } else if (part.startsWith("since:")) {
-      const sinceStr = part.split(":")[1];
-      const since = parseInt(sinceStr, 10);
-      if (!isNaN(since)) {
-        result.since = since;
+    } else if (part.startsWith("since:") || part.startsWith("after:")) {
+      const dateStr = part.split(":").slice(1).join(":"); // Handle colons in ISO dates
+      const timestamp = parseDateToTimestamp(dateStr);
+      if (timestamp !== undefined) {
+        result.since = timestamp;
       }
-    } else if (part.startsWith("until:")) {
-      const untilStr = part.split(":")[1];
-      const until = parseInt(untilStr, 10);
-      if (!isNaN(until)) {
-        result.until = until;
+    } else if (part.startsWith("until:") || part.startsWith("before:")) {
+      const dateStr = part.split(":").slice(1).join(":"); // Handle colons in ISO dates
+      const timestamp = parseDateToTimestamp(dateStr);
+      if (timestamp !== undefined) {
+        result.until = timestamp;
       }
     } else if (part.startsWith("limit:")) {
       const limitStr = part.split(":")[1];

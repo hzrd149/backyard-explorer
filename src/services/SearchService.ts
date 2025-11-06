@@ -1,4 +1,4 @@
-import type { StreamHandlers } from "../interface";
+import type { NostrEvent } from "nostr-tools";
 import type { ProfilePointer } from "nostr-tools/nip19";
 import { parseQuery, queryToFiltersWithResolution } from "./QueryParser";
 
@@ -79,20 +79,18 @@ export function requiresProfileLookup(query: string): boolean {
 }
 
 // Search for events using the filters method with username resolution
-export async function searchEvents(query: string, handlers: StreamHandlers) {
+export async function searchEvents(query: string): Promise<NostrEvent[]> {
   const db = window.nostrdb;
   const supported = await checkSearchSupport();
   const needsSearch = requiresSearch(query);
 
   if (!db) {
-    handlers.error?.(new Error("NostrDB not available"));
-    return null;
+    throw new Error("NostrDB not available");
   }
 
   // Only require search support if the query actually needs search functionality
   if (needsSearch && !supported) {
-    handlers.error?.(new Error("Search not supported"));
-    return null;
+    throw new Error("Search not supported");
   }
 
   try {
@@ -106,55 +104,20 @@ export async function searchEvents(query: string, handlers: StreamHandlers) {
     console.log(`Searching for: "${query}"`);
     console.log("Generated filters:", filters);
 
-    // Use the filters functionality (works even without search support)
-    return db.filters(filters, handlers);
+    // Use the filters functionality which returns a Promise of events
+    const events = await db.filters(filters);
+
+    return events || [];
   } catch (error) {
     console.error("Search failed:", error);
-    handlers.error?.(error as Error);
-    return null;
-  }
-}
-
-// Search for events using the subscribe method as fallback with username resolution
-export async function searchEventsWithSubscription(
-  query: string,
-  handlers: StreamHandlers,
-) {
-  const db = window.nostrdb;
-  const supported = await checkSearchSupport();
-  const needsSearch = requiresSearch(query);
-
-  if (!db) {
-    handlers.error?.(new Error("NostrDB not available"));
-    return null;
-  }
-
-  // Only require search support if the query actually needs search functionality
-  if (needsSearch && !supported) {
-    handlers.error?.(new Error("Search not supported"));
-    return null;
-  }
-
-  try {
-    // Parse the query to extract filters
-    const parsedQuery = parseQuery(query);
-
-    // Use the new function that resolves usernames
-    const filters = await queryToFiltersWithResolution(parsedQuery);
-
-    // Use the subscribe functionality as fallback
-    return db.subscribe(filters, handlers);
-  } catch (error) {
-    console.error("Search failed:", error);
-    handlers.error?.(error as Error);
-    return null;
+    throw error;
   }
 }
 
 // Search for profiles using the lookup method
 export async function searchProfiles(query: string): Promise<ProfilePointer[]> {
   const db = window.nostrdb;
-  
+
   if (!db) {
     throw new Error("NostrDB not available");
   }
@@ -162,7 +125,7 @@ export async function searchProfiles(query: string): Promise<ProfilePointer[]> {
   try {
     // Parse the query to extract profile lookup terms
     const parsedQuery = parseQuery(query);
-    
+
     if (parsedQuery.profileLookup.length === 0) {
       throw new Error("No profile lookup terms found in query");
     }
@@ -176,10 +139,10 @@ export async function searchProfiles(query: string): Promise<ProfilePointer[]> {
     // Use the first profile lookup term (limit to 10 results)
     const searchTerm = parsedQuery.profileLookup[0];
     console.log(`Looking up profiles for: "${searchTerm}"`);
-    
+
     const results = await db.lookup(searchTerm, 10);
     console.log(`Found ${results.length} profile results:`, results);
-    
+
     return results;
   } catch (error) {
     console.error("Profile lookup failed:", error);

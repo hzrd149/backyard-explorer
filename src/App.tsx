@@ -5,13 +5,13 @@ import SearchBar from "./componnts/SearchBar";
 import EventCard from "./componnts/events/EventCard";
 import SearchWarning from "./componnts/SearchWarning";
 import ProfileLookupResults from "./componnts/ProfileLookupResults";
+import ConfigModal from "./componnts/ConfigModal";
 import { SearchProvider } from "./context/SearchContext";
 import {
   isSearchSupported,
   requiresSearch,
   requiresProfileLookup,
   searchEvents,
-  searchEventsWithSubscription,
   searchProfiles,
 } from "./services/SearchService";
 import { useSearchQuery } from "./services/URLState";
@@ -24,6 +24,7 @@ function App() {
     null,
   );
   const [error, setError] = createSignal<string | null>(null);
+  const [isConfigModalOpen, setIsConfigModalOpen] = createSignal(false);
 
   // Use URL state as source of truth for search query
   const { query, updateQuery } = useSearchQuery();
@@ -68,34 +69,9 @@ function App() {
       }
 
       // Regular event search
-      const subscription = await searchEvents(searchQuery, {
-        event: (event: NostrEvent) => {
-          setEvents((prev) => [...prev, event]);
-        },
-        error: (err: Error) => {
-          setError(err.message);
-          setIsLoading(false);
-        },
-        complete: () => {
-          setIsLoading(false);
-        },
-      });
-
-      // If search is not supported, try subscription as fallback
-      if (!subscription && searchSupported() === false) {
-        await searchEventsWithSubscription(searchQuery, {
-          event: (event: NostrEvent) => {
-            setEvents((prev) => [...prev, event]);
-          },
-          error: (err: Error) => {
-            setError(err.message);
-            setIsLoading(false);
-          },
-          complete: () => {
-            setIsLoading(false);
-          },
-        });
-      }
+      const events = await searchEvents(searchQuery);
+      setEvents(events);
+      setIsLoading(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Search failed");
       setIsLoading(false);
@@ -116,6 +92,42 @@ function App() {
   return (
     <SearchProvider updateSearch={handleSearch}>
       <div class="min-h-screen bg-base-200">
+        {/* Settings Button - Fixed Position */}
+        <div class="fixed top-4 right-4 z-50">
+          <button
+            class="btn btn-circle btn-ghost"
+            onClick={() => setIsConfigModalOpen(true)}
+            title="Settings"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+              />
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+            </svg>
+          </button>
+        </div>
+
+        {/* Config Modal */}
+        <ConfigModal
+          isOpen={isConfigModalOpen()}
+          onClose={() => setIsConfigModalOpen(false)}
+        />
+
         <div class="container mx-auto px-4 py-8">
           {!hasQuery() ? (
             // Show only search bar when no query
@@ -131,6 +143,14 @@ function App() {
                   <code class="bg-base-300 px-2 py-1 rounded">k:20</code>{" "}
                   (picture posts), by author:{" "}
                   <code class="bg-base-300 px-2 py-1 rounded">by:username</code>
+                  , by date:{" "}
+                  <code class="bg-base-300 px-2 py-1 rounded">
+                    since:yesterday
+                  </code>
+                  ,{" "}
+                  <code class="bg-base-300 px-2 py-1 rounded">
+                    until:"last week"
+                  </code>
                   , or lookup profiles:{" "}
                   <code class="bg-base-300 px-2 py-1 rounded">p:username</code>
                 </p>
@@ -148,11 +168,29 @@ function App() {
 
               <div class="mt-8 max-w-3xl mx-auto bg-base-100 rounded-lg p-6 shadow-sm">
                 <p class="text-base-content/80 mb-4">
-                  This is an example search app built using the{" "}
+                  This is an example search app built with{" "}
+                  <a
+                    href="https://hzrd149.github.io/applesauce/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-primary hover:underline font-semibold"
+                  >
+                    Applesauce
+                  </a>{" "}
+                  using the{" "}
                   <code class="bg-base-300 px-2 py-1 rounded text-sm">
                     window.nostrdb
                   </code>{" "}
-                  API. The app's magic is powered by:
+                  API. The source code is available on{" "}
+                  <a
+                    href="https://github.com/hzrd149/backyard-explorer"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="text-primary hover:underline font-semibold"
+                  >
+                    GitHub
+                  </a>
+                  . The app's magic is powered by:
                 </p>
                 <ul class="space-y-2 text-sm text-base-content/70">
                   <li class="flex items-start">
@@ -200,7 +238,30 @@ function App() {
                       >
                         github.com/hzrd149/applesauce/tree/master/packages/extra
                       </a>{" "}
-                      for vertex and primal integration for user lookup
+                      for user lookup integration
+                    </span>
+                  </li>
+                  <li class="flex items-start">
+                    <span class="text-primary mr-2">•</span>
+                    <span>
+                      <strong>User search</strong> powered by{" "}
+                      <a
+                        href="https://vertexlab.io"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-primary hover:underline"
+                      >
+                        Vertexlab
+                      </a>{" "}
+                      and{" "}
+                      <a
+                        href="https://github.com/PrimalHQ/primal-server"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-primary hover:underline"
+                      >
+                        Primal caching server
+                      </a>
                     </span>
                   </li>
                   <li class="flex items-start">
@@ -298,6 +359,14 @@ function App() {
                       for picture posts, search by author with{" "}
                       <code class="bg-base-300 px-2 py-1 rounded">
                         by:username
+                      </code>
+                      , filter by date with{" "}
+                      <code class="bg-base-300 px-2 py-1 rounded">
+                        since:yesterday
+                      </code>{" "}
+                      or{" "}
+                      <code class="bg-base-300 px-2 py-1 rounded">
+                        after:2024-01-01
                       </code>
                       , or lookup profiles with{" "}
                       <code class="bg-base-300 px-2 py-1 rounded">
