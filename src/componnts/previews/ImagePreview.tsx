@@ -6,15 +6,14 @@ interface ImagePreviewProps {
 
 export default function ImagePreview(props: ImagePreviewProps) {
   return (
-    <div class="relative">
-      <img
-        src={props.url}
-        alt={props.alt || "Image preview"}
-        class="w-full h-48 object-cover rounded-lg"
-        onError={(e) => {
-          e.currentTarget.style.display = "none";
-        }}
-      />
-    </div>
+    <img
+      src={props.url}
+      alt={props.alt || "Image preview"}
+      class="rounded-lg max-h-[80vh]"
+      loading="lazy"
+      onError={(e) => {
+        e.currentTarget.style.display = "none";
+      }}
+    />
   );
 }

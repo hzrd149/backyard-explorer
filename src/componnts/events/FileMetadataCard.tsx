@@ -13,6 +13,7 @@ import {
   type FileMetadata,
 } from "applesauce-core/helpers/file-metadata";
 import mime from "mime";
+import { transformBlossomUrl } from "../../services/BlossomService";
 
 interface FileMetadataCardProps {
   fileMetadata: NostrEvent;
@@ -33,6 +34,19 @@ export default function FileMetadataCard(props: FileMetadataCardProps) {
 
   // Parse file metadata using applesauce-core helper
   const metadata: FileMetadata = getFileMetadata(props.fileMetadata);
+
+  // Transform URL using Blossom proxy if configured
+  // Handle case where there's no URL but SHA-256 hash exists (construct from hash)
+  const transformedUrl = () => {
+    const url = transformBlossomUrl(metadata.url || null, {
+      sha256: metadata.sha256,
+      type: metadata.type,
+      pubkey: props.fileMetadata.pubkey,
+    });
+    return url || metadata.url || null;
+  };
+
+  const displayUrl = transformedUrl();
 
   // Determine if this is an image or video
   const isImage = metadata.type?.startsWith("image/");
@@ -92,31 +106,31 @@ export default function FileMetadataCard(props: FileMetadataCardProps) {
             </div>
 
             {/* File Preview */}
-            {metadata.url && (
+            {displayUrl && (
               <div class="mb-3">
                 {isImage ? (
                   <ImagePreview
-                    url={metadata.url}
+                    url={displayUrl}
                     alt={metadata.alt || props.fileMetadata.content}
                     dimensions={metadata.dimensions}
                   />
                 ) : isVideo ? (
                   <VideoPreview
-                    url={metadata.url}
+                    url={displayUrl}
                     thumbnail={metadata.thumbnail}
                     previewImage={metadata.image}
                     alt={metadata.alt || props.fileMetadata.content}
                   />
                 ) : isAudio ? (
                   <AudioPreview
-                    url={metadata.url}
+                    url={displayUrl}
                     title={props.fileMetadata.content}
                   />
                 ) : metadata.type?.includes("application/pdf") ||
                   metadata.type?.includes("text/") ||
                   metadata.type?.includes("application/zip") ? (
                   <DocumentPreview
-                    url={metadata.url}
+                    url={displayUrl}
                     mimeType={metadata.type}
                     title={props.fileMetadata.content}
                     size={
@@ -125,7 +139,7 @@ export default function FileMetadataCard(props: FileMetadataCardProps) {
                   />
                 ) : (
                   <GenericFilePreview
-                    url={metadata.url}
+                    url={displayUrl}
                     mimeType={metadata.type}
                     fileExtension={fileExtension}
                     title={props.fileMetadata.content}
@@ -185,20 +199,14 @@ export default function FileMetadataCard(props: FileMetadataCardProps) {
 
             {/* Action Buttons */}
             <div class="flex gap-2">
-              {metadata.url && (
+              {displayUrl && !isImage && (
                 <a
-                  href={metadata.url}
+                  href={displayUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   class="btn btn-primary btn-sm flex-1"
                 >
-                  {isImage
-                    ? "View Image"
-                    : isVideo
-                      ? "Play Video"
-                      : isAudio
-                        ? "Play Audio"
-                        : "Download"}
+                  {isVideo ? "Play Video" : isAudio ? "Play Audio" : "Download"}
                 </a>
               )}
               {metadata.magnet && (

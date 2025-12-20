@@ -6,25 +6,26 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "format": "prettier --write ."
   },
   "dependencies": {
-    "applesauce-core": "^4.2.0",
+    "applesauce-core": "^4.4.2",
     "chrono-node": "^2.9.0",
     "mime": "^4.1.0",
-    "nostr-tools": "^2.17.2",
+    "nostr-tools": "^2.19.4",
     "solid-js": "^1.9.10",
-    "tailwindcss": "^4.1.17",
+    "tailwindcss": "^4.1.18",
     "window.nostr.js": "^0.5.0",
     "window.nostrdb.js": "^0.5.0"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.1.17",
-    "@types/node": "^24.10.0",
-    "daisyui": "^5.4.5",
-    "prettier": "^3.6.2",
+    "@tailwindcss/vite": "^4.1.18",
+    "@types/node": "^24.10.4",
+    "daisyui": "^5.5.14",
+    "prettier": "^3.7.4",
     "typescript": "~5.9.3",
-    "vite": "^7.2.1",
+    "vite": "^7.3.0",
     "vite-plugin-solid": "^2.11.10"
   },
   "packageManager": "pnpm@9.15.6"

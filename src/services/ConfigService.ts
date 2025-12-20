@@ -2,6 +2,8 @@ import type { NostrDBConfig } from "window.nostrdb.js/dist/interface";
 
 const CONFIG_STORAGE_KEY = "nostrdb-config";
 
+export type Config = Partial<NostrDBConfig> & { blossomProxy?: string };
+
 // Initialize config immediately when this module loads (before any imports)
 // This ensures window.nostrdbConfig is set before window.nostrdb.js initializes
 (function initializeConfig() {
@@ -9,7 +11,7 @@ const CONFIG_STORAGE_KEY = "nostrdb-config";
     const stored = localStorage.getItem(CONFIG_STORAGE_KEY);
 
     if (stored) {
-      const parsed: Partial<NostrDBConfig> = JSON.parse(stored);
+      const parsed: Config = JSON.parse(stored);
       // Only set config if user has saved preferences
       // This allows window.nostrdb.js to use its own defaults for unset fields
       (window as any).nostrdbConfig = parsed;
@@ -23,7 +25,7 @@ const CONFIG_STORAGE_KEY = "nostrdb-config";
 })();
 
 /** Load configuration from localStorage */
-export function loadConfig(): Partial<NostrDBConfig> {
+export function loadConfig(): Config {
   try {
     const stored = localStorage.getItem(CONFIG_STORAGE_KEY);
     if (stored) {
@@ -37,10 +39,10 @@ export function loadConfig(): Partial<NostrDBConfig> {
 }
 
 /** Save configuration to localStorage */
-export function saveConfig(config: Partial<NostrDBConfig>): void {
+export function saveConfig(config: Config): void {
   try {
     // Create a serializable version (remove functions like vertex.signer)
-    const serializable: Partial<NostrDBConfig> = {};
+    const serializable: Config = {};
 
     if (config.localRelays) serializable.localRelays = config.localRelays;
     if (config.primal) serializable.primal = config.primal;
@@ -54,6 +56,7 @@ export function saveConfig(config: Partial<NostrDBConfig>): void {
     if (config.relatr) serializable.relatr = config.relatr;
     if (config.lookupProviders)
       serializable.lookupProviders = config.lookupProviders;
+    if (config.blossomProxy) serializable.blossomProxy = config.blossomProxy;
 
     localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(serializable));
   } catch (error) {
@@ -62,17 +65,17 @@ export function saveConfig(config: Partial<NostrDBConfig>): void {
 }
 
 /** Get current configuration */
-export function getConfig(): Partial<NostrDBConfig> {
-  return (window as any).nostrdbConfig || loadConfig();
+export function getConfig(): Config {
+  return window.nostrdbConfig || loadConfig();
 }
 
 /** Update configuration and apply to window.nostrdbConfig */
-export function updateConfig(updates: Partial<NostrDBConfig>): void {
+export function updateConfig(updates: Config): void {
   const currentConfig = getConfig();
-  const newConfig: NostrDBConfig = {
+  const newConfig: Config = {
     ...currentConfig,
     ...updates,
-  } as NostrDBConfig;
+  } as Config;
 
   // Apply to window
   (window as any).nostrdbConfig = newConfig;
@@ -104,4 +107,10 @@ export function initConfig(): Partial<NostrDBConfig> {
   }
   // If config is empty, don't set anything - let library use defaults
   return config;
+}
+
+/** Get Blossom proxy URL from configuration */
+export function getBlossomProxyUrl(): string | undefined {
+  const config = getConfig();
+  return (config as any).blossomProxy;
 }

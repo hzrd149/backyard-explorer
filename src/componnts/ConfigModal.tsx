@@ -96,6 +96,9 @@ export default function ConfigModal(props: ConfigModalProps) {
   const [relatrRelays, setRelatrRelays] = createSignal(
     currentConfig.relatr?.relays?.join("\n") || "",
   );
+  const [blossomProxy, setBlossomProxy] = createSignal(
+    currentConfig.blossomProxy || "",
+  );
 
   const [saveSuccess, setSaveSuccess] = createSignal(false);
 
@@ -161,7 +164,7 @@ export default function ConfigModal(props: ConfigModalProps) {
     const relatrEnabled =
       providers().find((p) => p.id === "relatr")?.enabled ?? false;
 
-    const updates: Partial<NostrDBConfig> = {
+    const updates: Partial<NostrDBConfig> & { blossomProxy?: string } = {
       // Only set localRelays if not empty, otherwise let library use defaults
       ...(parsedLocalRelays.length > 0
         ? { localRelays: parsedLocalRelays }
@@ -186,6 +189,7 @@ export default function ConfigModal(props: ConfigModalProps) {
           : undefined,
       lookupProviders:
         enabledProviders.length > 0 ? enabledProviders : ["local"],
+      blossomProxy: blossomProxy().trim() || undefined,
     };
 
     // Show success message before reload
@@ -237,6 +241,26 @@ export default function ConfigModal(props: ConfigModalProps) {
             </div>
           </fieldset>
 
+          {/* Blossom Proxy */}
+          <fieldset class="w-full">
+            <label class="label">
+              <span class="label-text font-semibold">Blossom Proxy URL</span>
+              <span class="label-text-alt text-base-content/60">Optional</span>
+            </label>
+            <input
+              type="text"
+              placeholder="http://localhost:3000"
+              class="input input-bordered w-full"
+              value={blossomProxy()}
+              onInput={(e) => setBlossomProxy(e.currentTarget.value)}
+            />
+            <div class="label">
+              <span class="label-text-alt text-base-content/60">
+                Blossom proxy server URL for caching blossom files.
+              </span>
+            </div>
+          </fieldset>
+
           {/* Lookup Providers */}
           <div class="divider">Lookup Providers</div>
 
@@ -255,7 +279,7 @@ export default function ConfigModal(props: ConfigModalProps) {
                 >
                   <div class="flex items-center gap-2 w-full">
                     {/* Reorder buttons */}
-                    <div class="flex flex-col flex-shrink-0">
+                    <div class="flex flex-col shrink-0">
                       <button
                         class="btn btn-ghost btn-xs"
                         disabled={index() === 0}

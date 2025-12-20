@@ -4,6 +4,7 @@ import { getPicturePostAttachments } from "applesauce-core/helpers/picture-post"
 import UserAvatar from "../UserAvatar";
 import UserName from "../UserName";
 import Hashtag from "../Hashtag";
+import { transformBlossomUrl } from "../../services/BlossomService";
 
 interface PicturePostCardProps {
   picturePost: NostrEvent;
@@ -15,7 +16,44 @@ export default function PicturePostCard(props: PicturePostCardProps) {
   const title = titleTag?.[1] || "";
 
   // Get media attachments using the applesauce-core helper
-  const attachments = getPicturePostAttachments(props.picturePost);
+  const rawAttachments = getPicturePostAttachments(props.picturePost);
+
+  // Get all x tags (hashes) from the event
+  const hashTags = props.picturePost.tags
+    .filter((tag) => tag[0] === "x")
+    .map((tag) => tag[1])
+    .filter(Boolean);
+
+  // Get all m tags (MIME types) from the event
+  const mimeTags = props.picturePost.tags
+    .filter((tag) => tag[0] === "m")
+    .map((tag) => tag[1])
+    .filter(Boolean);
+
+  // Transform attachment URLs using Blossom proxy if configured
+  // Handle attachments without URLs but with hashes
+  const attachments = rawAttachments
+    .map((attachment, index) => {
+      // Check if attachment has a hash property, or use hash from tags if available
+      const hash = attachment.sha256 || hashTags[index] || undefined;
+
+      // Get MIME type from attachment or tags
+      const mimeType = attachment.type || mimeTags[index] || undefined;
+
+      const transformedUrl = transformBlossomUrl(attachment.url || null, {
+        sha256: hash,
+        type: mimeType,
+        pubkey: props.picturePost.pubkey,
+      });
+
+      const finalUrl = transformedUrl || attachment.url || undefined;
+
+      return {
+        ...attachment,
+        url: finalUrl,
+      };
+    })
+    .filter((attachment) => attachment.url); // Filter out attachments without URLs
 
   // Get hashtags
   const hashtags = props.picturePost.tags
@@ -101,14 +139,12 @@ export default function PicturePostCard(props: PicturePostCardProps) {
           <div class="mb-4">
             {attachments.length === 1 ? (
               // Single image - display larger
-              <div class="relative">
-                <img
-                  src={attachments[0].url}
-                  alt={attachments[0].alt || title || "Picture post"}
-                  class="w-full rounded-lg object-cover max-h-96"
-                  loading="lazy"
-                />
-              </div>
+              <img
+                src={attachments[0].url}
+                alt={attachments[0].alt || title || "Picture post"}
+                class="rounded-lg object-cover max-h-[80vh]"
+                loading="lazy"
+              />
             ) : (
               // Multiple images - display in grid
               <div class="grid grid-cols-2 gap-2">
