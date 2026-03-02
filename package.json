@@ -10,6 +10,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "applesauce-content": "4",
     "applesauce-core": "^4.4.2",
     "chrono-node": "^2.9.0",
     "mime": "^4.1.0",

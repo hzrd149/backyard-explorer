@@ -2,6 +2,7 @@ import type { NostrEvent } from "nostr-tools";
 import UserAvatar from "../UserAvatar";
 import UserName from "../UserName";
 import Hashtag from "../Hashtag";
+import RichContent from "../RichContent.tsx";
 
 interface NoteCardProps {
   note: NostrEvent;
@@ -10,14 +11,6 @@ interface NoteCardProps {
 export default function NoteCard(props: NoteCardProps) {
   const formatDate = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleString();
-  };
-
-  const formatContent = (content: string) => {
-    // Simple URL detection and linking
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    return content.replace(urlRegex, (url) => {
-      return `<a href="${url}" target="_blank" rel="noopener noreferrer" class="link link-primary">${url}</a>`;
-    });
   };
 
   return (
@@ -41,9 +34,9 @@ export default function NoteCard(props: NoteCardProps) {
               </span>
             </div>
 
-            <div
-              class="prose prose-sm max-w-none"
-              innerHTML={formatContent(props.note.content)}
+            <RichContent
+              content={props.note.content}
+              pubkey={props.note.pubkey}
             />
 
             {props.note.tags && props.note.tags.length > 0 && (
