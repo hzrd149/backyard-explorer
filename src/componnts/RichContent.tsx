@@ -66,14 +66,16 @@ function renderNode(node: Content, pubkey: string | undefined) {
           <For each={resolvedLinks}>
             {(url) => (
               <div class="flex-none snap-start">
-                <img
-                  src={url}
-                  class="h-48 w-auto rounded-lg object-cover"
-                  loading="lazy"
-                  onError={(e) => {
-                    e.currentTarget.style.display = "none";
-                  }}
-                />
+                <a href={url} target="_blank" rel="noopener noreferrer">
+                  <img
+                    src={url}
+                    class="h-48 w-auto rounded-lg object-cover"
+                    loading="lazy"
+                    onError={(e) => {
+                      e.currentTarget.parentElement!.style.display = "none";
+                    }}
+                  />
+                </a>
               </div>
             )}
           </For>

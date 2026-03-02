@@ -8,10 +8,7 @@ import {
   DocumentPreview,
   GenericFilePreview,
 } from "../previews";
-import {
-  getFileMetadata,
-  type FileMetadata,
-} from "applesauce-core/helpers/file-metadata";
+import { getFileMetadata, type FileMetadata } from "applesauce-common/helpers";
 import mime from "mime";
 import { transformBlossomUrl } from "../../services/BlossomService";
 

@@ -7,7 +7,7 @@ import EventCard from "./EventCard";
 import {
   getEmbededSharedEvent,
   getSharedEventPointer,
-} from "applesauce-core/helpers/share";
+} from "applesauce-common/helpers";
 
 interface RepostCardProps {
   repost: NostrEvent;

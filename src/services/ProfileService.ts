@@ -53,10 +53,7 @@ export async function fetchProfile(
   }
 }
 
-export {
-  getProfilePicture,
-  getDisplayName,
-} from "applesauce-core/helpers/profile";
+export { getProfilePicture, getDisplayName } from "applesauce-core/helpers";
 
 // Clear profile cache (useful for testing or when profiles are updated)
 export function clearProfileCache(): void {

@@ -11,7 +11,7 @@ export default function VideoPreview(props: VideoPreviewProps) {
       <video
         src={props.url}
         controls
-        class="w-full h-48 object-cover rounded-lg"
+        class="w-full max-h-[80vh] object-cover rounded-lg"
         poster={props.thumbnail || props.previewImage}
       >
         Your browser does not support the video tag.

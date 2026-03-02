@@ -1,6 +1,6 @@
 import type { Filter } from "nostr-tools";
 import mime from "mime";
-import { normalizeToPubkey } from "applesauce-core/helpers/pointers";
+import { normalizeToPubkey } from "applesauce-core/helpers";
 import { parseDate } from "chrono-node";
 
 export interface ParsedQuery {
@@ -182,14 +182,15 @@ function isNIP19Identifier(str: string): boolean {
 
 // Helper function to convert NIP-19 identifier to hex pubkey
 function convertNIP19ToPubkey(nip19Str: string): string {
-  try {
-    return normalizeToPubkey(nip19Str);
-  } catch (error) {
+  // In v5, normalizeToPubkey returns null instead of throwing on invalid input
+  const result = normalizeToPubkey(nip19Str);
+  if (result === null) {
     // If conversion fails, return the original string
     // This allows the system to fall back to username resolution
-    console.warn(`Failed to convert NIP-19 identifier "${nip19Str}":`, error);
+    console.warn(`Failed to convert NIP-19 identifier "${nip19Str}"`);
     return nip19Str;
   }
+  return result;
 }
 
 /**

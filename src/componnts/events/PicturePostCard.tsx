@@ -1,6 +1,6 @@
 import type { NostrEvent } from "nostr-tools";
 import { For } from "solid-js";
-import { getPicturePostAttachments } from "applesauce-core/helpers/picture-post";
+import { getPicturePostAttachments } from "applesauce-common/helpers";
 import UserAvatar from "../UserAvatar";
 import UserName from "../UserName";
 import Hashtag from "../Hashtag";
@@ -139,24 +139,37 @@ export default function PicturePostCard(props: PicturePostCardProps) {
           <div class="mb-4">
             {attachments.length === 1 ? (
               // Single image - display larger
-              <img
-                src={attachments[0].url}
-                alt={attachments[0].alt || title || "Picture post"}
-                class="rounded-lg object-cover max-h-[80vh]"
-                loading="lazy"
-              />
+              <a
+                href={attachments[0].url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <img
+                  src={attachments[0].url}
+                  alt={attachments[0].alt || title || "Picture post"}
+                  class="rounded-lg object-cover max-h-[80vh]"
+                  loading="lazy"
+                />
+              </a>
             ) : (
               // Multiple images - display in grid
               <div class="grid grid-cols-2 gap-2">
                 <For each={attachments.slice(0, 4)}>
                   {(attachment, index) => (
                     <div class="relative aspect-square">
-                      <img
-                        src={attachment.url}
-                        alt={attachment.alt || `Image ${index() + 1}`}
-                        class="w-full h-full rounded-lg object-cover"
-                        loading="lazy"
-                      />
+                      <a
+                        href={attachment.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="block w-full h-full"
+                      >
+                        <img
+                          src={attachment.url}
+                          alt={attachment.alt || `Image ${index() + 1}`}
+                          class="w-full h-full rounded-lg object-cover"
+                          loading="lazy"
+                        />
+                      </a>
                     </div>
                   )}
                 </For>
