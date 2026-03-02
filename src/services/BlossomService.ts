@@ -181,6 +181,22 @@ function transformBud10Uri(uri: string, pubkey?: string): string | null {
 }
 
 /**
+ * Check if a URL is already being served through the configured Blossom proxy.
+ * Returns true when the URL's origin matches the configured proxy base URL.
+ */
+export function isBlossomProxiedUrl(url: string): boolean {
+  const proxyBase = getBlossomProxyUrl();
+  if (!proxyBase) return false;
+  try {
+    const urlObj = new URL(url);
+    const proxyObj = new URL(proxyBase);
+    return urlObj.origin === proxyObj.origin;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Transform a Blossom URL (BUD-01 or BUD-10) to use the proxy server
  *
  * @param url - The URL to transform (can be null for hash-only construction)

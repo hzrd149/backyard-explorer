@@ -13,20 +13,35 @@ export function SearchProvider(
   const appendToSearch = (term: string) => {
     const currentQuery =
       new URLSearchParams(window.location.search).get("q") || "";
-    const trimmedQuery = currentQuery.trim();
     const trimmedTerm = term.trim();
 
-    if (!trimmedQuery) {
+    // Derive the prefix of the incoming term (e.g. "by", "#", "from", etc.)
+    // so we can replace any existing token with the same prefix.
+    const colonIdx = trimmedTerm.indexOf(":");
+    const termPrefix =
+      colonIdx !== -1 ? trimmedTerm.slice(0, colonIdx + 1) : null;
+
+    // Remove existing tokens that share the same prefix, then trim whitespace.
+    let baseQuery = currentQuery.trim();
+    if (termPrefix) {
+      baseQuery = baseQuery
+        .split(/\s+/)
+        .filter((token) => !token.startsWith(termPrefix))
+        .join(" ")
+        .trim();
+    }
+
+    if (!baseQuery) {
       props.updateSearch(trimmedTerm);
       return;
     }
 
-    // Check if the term is already in the query
-    if (trimmedQuery.includes(trimmedTerm)) {
+    // Check if the exact term is already present
+    if (baseQuery.split(/\s+/).includes(trimmedTerm)) {
       return;
     }
 
-    props.updateSearch(`${trimmedQuery} ${trimmedTerm}`);
+    props.updateSearch(`${baseQuery} ${trimmedTerm}`);
   };
 
   return (
