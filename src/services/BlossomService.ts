@@ -1,30 +1,49 @@
 import mime from "mime";
 import { getBlossomProxyUrl } from "./ConfigService";
 
-/**
- * Check if a URL matches the BUD-01 pattern: https://server.com/{sha256}.{ext}
- */
-export function isBud01Url(url: string): boolean {
+interface ParsedBud01Url {
+  hash: string;
+  ext: string | null;
+  urlObj: URL;
+}
+
+function parseBud01Url(url: string): ParsedBud01Url | null {
   try {
     const urlObj = new URL(url);
+    if (urlObj.protocol !== "http:" && urlObj.protocol !== "https:") {
+      return null;
+    }
+
     const pathParts = urlObj.pathname.split("/").filter(Boolean);
-    if (pathParts.length === 0) return false;
+    if (pathParts.length === 0) return null;
 
     const filename = pathParts[pathParts.length - 1];
     const parts = filename.split(".");
+    if (parts.length < 1) return null;
 
-    // Check if we have at least a hash (64 hex chars) and optionally an extension
-    if (parts.length < 1) return false;
+    const hash = parts[0]?.toLowerCase();
+    if (!hash || !/^[0-9a-f]{64}$/i.test(hash)) return null;
 
-    const hashPart = parts[0];
-    // SHA-256 is 64 hex characters
-    if (!/^[0-9a-f]{64}$/i.test(hashPart)) return false;
+    const ext =
+      parts.length > 1 && /^[a-z0-9]{1,5}$/i.test(parts[parts.length - 1] || "")
+        ? parts[parts.length - 1]!.toLowerCase()
+        : null;
 
-    // Must be http or https
-    return urlObj.protocol === "http:" || urlObj.protocol === "https:";
+    return {
+      hash,
+      ext,
+      urlObj,
+    };
   } catch {
-    return false;
+    return null;
   }
+}
+
+/**
+ * Check if a URL matches the BUD-01 pattern with a SHA-256 filename.
+ */
+export function isBud01Url(url: string): boolean {
+  return parseBud01Url(url) !== null;
 }
 
 /**
@@ -38,22 +57,7 @@ export function isBud10Uri(uri: string): boolean {
  * Extract SHA-256 hash from a BUD-01 URL
  */
 export function extractHashFromUrl(url: string): string | null {
-  try {
-    const urlObj = new URL(url);
-    const pathParts = urlObj.pathname.split("/").filter(Boolean);
-    if (pathParts.length === 0) return null;
-
-    const filename = pathParts[pathParts.length - 1];
-    const parts = filename.split(".");
-    const hashPart = parts[0];
-
-    if (/^[0-9a-f]{64}$/i.test(hashPart)) {
-      return hashPart.toLowerCase();
-    }
-  } catch {
-    // Invalid URL
-  }
-  return null;
+  return parseBud01Url(url)?.hash ?? null;
 }
 
 /**
@@ -129,13 +133,19 @@ function transformBud01Url(url: string, pubkey?: string): string | null {
   const proxyBase = getBlossomProxyUrl();
   if (!proxyBase) return null;
 
+  const parsed = parseBud01Url(url);
+  if (!parsed) return null;
+
   try {
-    const urlObj = new URL(url);
-    // Replace the origin with the proxy base, keep path and query
-    const proxyUrl = new URL(urlObj.pathname + urlObj.search, proxyBase);
+    const extension = parsed.ext ? `.${parsed.ext}` : "";
+    const proxyUrl = new URL(`/${parsed.hash}${extension}`, proxyBase);
+
+    parsed.urlObj.searchParams.forEach((value, key) => {
+      proxyUrl.searchParams.append(key, value);
+    });
 
     // Add server hint (sx parameter) - original hostname
-    proxyUrl.searchParams.append("sx", urlObj.hostname);
+    proxyUrl.searchParams.append("sx", parsed.urlObj.hostname);
 
     // Add author pubkey as `as` parameter if provided
     if (pubkey) {
