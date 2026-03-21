@@ -2,14 +2,16 @@
   "bunkerPubkey": "266815e0c9210dfa324c6cba3573b14bee49da4209a9456f9484e5106cd408a5",
   "relays": [
     "wss://relay.primal.net",
-    "wss://nos.lol"
+    "wss://nos.lol",
+    "wss://relay.nsite.lol",
+    "wss://nsite.run"
   ],
   "servers": [
     "https://cdn.hzrd149.com",
-    "https://24242.io",
+    "https://nsite.run",
     "https://nostr.download"
   ],
-  "id": "backyard-explorer",
+  "id": "bkyardexp",
   "title": "Backyard Explorer",
   "description": "A search tool for your local relay"
 }
