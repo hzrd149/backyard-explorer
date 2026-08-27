@@ -1,8 +1,12 @@
 import type { NostrDBConfig } from "window.nostrdb.js/dist/interface";
 
 const CONFIG_STORAGE_KEY = "nostrdb-config";
+const LOCAL_BLOSSOM_PROXY_URL = "http://localhost:24242";
+const LOCAL_BLOSSOM_PROBE_TIMEOUT = 1_000;
 
 export type Config = Partial<NostrDBConfig> & { blossomProxy?: string };
+
+let detectedBlossomProxy: string | undefined;
 
 // Initialize config immediately when this module loads (before any imports)
 // This ensures window.nostrdbConfig is set before window.nostrdb.js initializes
@@ -112,5 +116,33 @@ export function initConfig(): Partial<NostrDBConfig> {
 /** Get Blossom proxy URL from configuration */
 export function getBlossomProxyUrl(): string | undefined {
   const config = getConfig();
-  return (config as any).blossomProxy;
+  return config.blossomProxy || detectedBlossomProxy;
+}
+
+/** Detect the conventional local Blossom server unless the user configured one. */
+export async function detectLocalBlossomProxy(): Promise<string | undefined> {
+  const configuredProxy = getConfig().blossomProxy;
+  if (configuredProxy) return configuredProxy;
+
+  const controller = new AbortController();
+  const timeout = window.setTimeout(
+    () => controller.abort(),
+    LOCAL_BLOSSOM_PROBE_TIMEOUT,
+  );
+
+  try {
+    await fetch(LOCAL_BLOSSOM_PROXY_URL, {
+      cache: "no-store",
+      credentials: "omit",
+      mode: "no-cors",
+      signal: controller.signal,
+    });
+    detectedBlossomProxy = LOCAL_BLOSSOM_PROXY_URL;
+  } catch {
+    detectedBlossomProxy = undefined;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+
+  return detectedBlossomProxy;
 }

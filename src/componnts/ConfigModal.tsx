@@ -249,14 +249,15 @@ export default function ConfigModal(props: ConfigModalProps) {
             </label>
             <input
               type="text"
-              placeholder="http://localhost:3000"
+              placeholder="http://localhost:24242"
               class="input input-bordered w-full"
               value={blossomProxy()}
               onInput={(e) => setBlossomProxy(e.currentTarget.value)}
             />
             <div class="label">
               <span class="label-text-alt text-base-content/60">
-                Blossom proxy server URL for caching blossom files.
+                Blossom proxy server URL for caching blossom files. A server on
+                localhost:24242 is detected automatically.
               </span>
             </div>
           </fieldset>
