@@ -4,7 +4,40 @@ const CONFIG_STORAGE_KEY = "nostrdb-config";
 const LOCAL_BLOSSOM_PROXY_URL = "http://localhost:24242";
 const LOCAL_BLOSSOM_PROBE_TIMEOUT = 1_000;
 
-export type Config = Partial<NostrDBConfig> & { blossomProxy?: string };
+/** Default local relay the app routes window.nostrdb requests to */
+export const DEFAULT_LOCAL_RELAYS = ["ws://localhost:4869/"];
+
+export const DEFAULT_NIP50_RELAY = "wss://relay.ditto.pub";
+export const DEFAULT_OPEN_RANKING_PROVIDER_URL =
+  "https://ranking.vertexlab.io/";
+export const OPEN_RANKING_PROVIDER_URLS = [
+  DEFAULT_OPEN_RANKING_PROVIDER_URL,
+  "https://staging.brainstorm.world",
+] as const;
+
+/** Ordered lookup providers used when the user has not configured any */
+export const DEFAULT_LOOKUP_PROVIDERS: LookupProviderId[] = [
+  "openranking",
+  "nip50",
+  "local",
+];
+
+export type LookupProviderId =
+  "primal" | "local" | "nip50" | "relatr" | "openranking";
+
+export type Config = Partial<NostrDBConfig> & {
+  blossomProxy?: string;
+  /** Ordered array of lookup providers to try (in order) */
+  lookupProviders?: LookupProviderId[];
+  /** Primal lookup provider settings */
+  primal?: { cache?: string };
+  /** Simple remote NIP-50 relay lookup provider settings */
+  nip50?: { relay?: string };
+  /** Relatr (ContextVM MCP) lookup provider settings */
+  relatr?: { pubkey?: string; relays?: string[] };
+  /** Open Ranking lookup provider settings */
+  openRanking?: { provider?: string };
+};
 
 let detectedBlossomProxy: string | undefined;
 
@@ -14,52 +47,57 @@ let detectedBlossomProxy: string | undefined;
   try {
     const stored = localStorage.getItem(CONFIG_STORAGE_KEY);
 
-    if (stored) {
-      const parsed: Config = JSON.parse(stored);
-      // Only set config if user has saved preferences
-      // This allows window.nostrdb.js to use its own defaults for unset fields
-      (window as any).nostrdbConfig = parsed;
-    }
-    // If no stored config, don't set window.nostrdbConfig at all
-    // Let window.nostrdb.js use its built-in defaults
+    const parsed: Config = stored ? JSON.parse(stored) : {};
+
+    // The library no longer defaults to the local relay, so the app provides
+    // its own default unless the user explicitly configured relays
+    (window as any).nostrdbConfig = {
+      localRelays: DEFAULT_LOCAL_RELAYS,
+      ...parsed,
+    };
   } catch (error) {
     console.error("Failed to initialize config:", error);
-    // Don't set any config on error - let library use defaults
+
+    // Fall back to app defaults on error
+    (window as any).nostrdbConfig = { localRelays: DEFAULT_LOCAL_RELAYS };
   }
 })();
 
-/** Load configuration from localStorage */
+/** Load configuration from localStorage merged with app defaults */
 export function loadConfig(): Config {
   try {
     const stored = localStorage.getItem(CONFIG_STORAGE_KEY);
     if (stored) {
-      return JSON.parse(stored);
+      const parsed: Config = JSON.parse(stored);
+      return {
+        localRelays: parsed.localRelays ?? DEFAULT_LOCAL_RELAYS,
+        lookupProviders: parsed.lookupProviders ?? DEFAULT_LOOKUP_PROVIDERS,
+        ...parsed,
+      };
     }
   } catch (error) {
     console.error("Failed to load config from localStorage:", error);
   }
 
-  return {};
+  return {
+    localRelays: DEFAULT_LOCAL_RELAYS,
+    lookupProviders: DEFAULT_LOOKUP_PROVIDERS,
+  };
 }
 
 /** Save configuration to localStorage */
 export function saveConfig(config: Config): void {
   try {
-    // Create a serializable version (remove functions like vertex.signer)
+    // Create a serializable version
     const serializable: Config = {};
 
     if (config.localRelays) serializable.localRelays = config.localRelays;
-    if (config.primal) serializable.primal = config.primal;
-    if (config.vertex) {
-      serializable.vertex = {
-        relay: config.vertex.relay,
-        method: config.vertex.method,
-        // Don't serialize signer function
-      };
-    }
-    if (config.relatr) serializable.relatr = config.relatr;
     if (config.lookupProviders)
       serializable.lookupProviders = config.lookupProviders;
+    if (config.primal) serializable.primal = config.primal;
+    if (config.nip50) serializable.nip50 = config.nip50;
+    if (config.relatr) serializable.relatr = config.relatr;
+    if (config.openRanking) serializable.openRanking = config.openRanking;
     if (config.blossomProxy) serializable.blossomProxy = config.blossomProxy;
 
     localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(serializable));
@@ -71,6 +109,14 @@ export function saveConfig(config: Config): void {
 /** Get current configuration */
 export function getConfig(): Config {
   return window.nostrdbConfig || loadConfig();
+}
+
+/** Get the ordered list of enabled lookup providers */
+export function getLookupProviders(): LookupProviderId[] {
+  const config = getConfig();
+  return config.lookupProviders?.length
+    ? config.lookupProviders
+    : DEFAULT_LOOKUP_PROVIDERS;
 }
 
 /** Update configuration and apply to window.nostrdbConfig */
@@ -93,7 +139,7 @@ export function updateConfig(updates: Config): void {
 
 /** Reset configuration to defaults */
 export function resetConfig(): void {
-  // Clear the config completely to use library defaults
+  // Clear the config completely to use app defaults
   localStorage.removeItem(CONFIG_STORAGE_KEY);
 
   // Clear window config
@@ -101,16 +147,6 @@ export function resetConfig(): void {
 
   // Reload the page to apply changes (window.nostrdb.js needs to reinitialize)
   window.location.reload();
-}
-
-/** Initialize configuration on app startup */
-export function initConfig(): Partial<NostrDBConfig> {
-  const config = loadConfig();
-  if (Object.keys(config).length > 0) {
-    (window as any).nostrdbConfig = config;
-  }
-  // If config is empty, don't set anything - let library use defaults
-  return config;
 }
 
 /** Get Blossom proxy URL from configuration */

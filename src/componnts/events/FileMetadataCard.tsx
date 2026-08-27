@@ -8,7 +8,10 @@ import {
   DocumentPreview,
   GenericFilePreview,
 } from "../previews";
-import { getFileMetadata, type FileMetadata } from "applesauce-common/helpers";
+import {
+  getFileMetadata,
+  type FileMetadataFields,
+} from "applesauce-common/helpers";
 import mime from "mime";
 import { transformBlossomUrl } from "../../services/BlossomService";
 
@@ -30,7 +33,8 @@ export default function FileMetadataCard(props: FileMetadataCardProps) {
   };
 
   // Parse file metadata using applesauce-core helper
-  const metadata: FileMetadata = getFileMetadata(props.fileMetadata);
+  const metadata: FileMetadataFields =
+    getFileMetadata(props.fileMetadata) ?? {};
 
   // Transform URL using Blossom proxy if configured
   // Handle case where there's no URL but SHA-256 hash exists (construct from hash)

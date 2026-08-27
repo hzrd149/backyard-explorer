@@ -9,7 +9,7 @@ export interface ParsedQuery {
   authors: string[];
   tags: Record<string, string[]>;
   profiles: string[];
-  usernames: string[]; // New field for usernames that need to be resolved
+  usernames: string[]; // Usernames that need to be resolved via lookup providers
   hashtags: string[]; // New field for hashtags
   profileLookup: string[]; // New field for p:<name> profile lookups
   mimeTypes: string[]; // New field for m:<ext/mime> MIME type searches (uses #m filter)
@@ -501,56 +501,41 @@ export function parseQuery(query: string): ParsedQuery {
   return result;
 }
 
-// Resolve usernames to pubkeys using the lookup method
+// Resolve usernames to pubkeys using the configured lookup providers
 export async function resolveUsernames(usernames: string[]): Promise<string[]> {
   if (usernames.length === 0) {
     return [];
   }
 
-  try {
-    const db = window.nostrdb;
-    if (!db) {
-      throw new Error("NostrDB not available for username resolution");
-    }
+  const { lookupProfiles } = await import("./LookupService");
 
-    // Check if lookup is supported
-    const features = await db.supports();
-    if (!features.includes("lookup")) {
-      throw new Error("Lookup feature not supported by database");
-    }
+  const resolvedPubkeys: string[] = [];
 
-    const resolvedPubkeys: string[] = [];
-
-    // Resolve each username
-    for (const username of usernames) {
-      try {
-        const results = await db.lookup(username);
-        if (results && results.length > 0) {
-          // Take the first (best match) result
-          resolvedPubkeys.push(results[0].pubkey);
-        } else {
-          throw new Error(`No results found for username "${username}"`);
-        }
-      } catch (error) {
-        throw new Error(
-          `Failed to resolve username "${username}": ${error instanceof Error ? error.message : "Unknown error"}`,
-        );
+  // Resolve each username
+  for (const username of usernames) {
+    try {
+      const results = await lookupProfiles(username);
+      if (results && results.length > 0) {
+        // Take the first (best match) result
+        resolvedPubkeys.push(results[0].pubkey);
+      } else {
+        throw new Error(`No results found for username "${username}"`);
       }
+    } catch (error) {
+      throw new Error(
+        `Failed to resolve username "${username}": ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
     }
-
-    return resolvedPubkeys;
-  } catch (error) {
-    throw new Error(
-      `Username resolution failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-    );
   }
+
+  return resolvedPubkeys;
 }
 
 // Convert parsed query to Nostr filters with username resolution
 export async function queryToFiltersWithResolution(
   parsedQuery: ParsedQuery,
 ): Promise<Filter[]> {
-  // Resolve usernames to pubkeys using lookup - this will throw if resolution fails
+  // Resolve usernames to pubkeys using lookup providers - this will throw if resolution fails
   const resolvedPubkeys = await resolveUsernames(parsedQuery.usernames);
 
   // Create a new parsed query with resolved pubkeys added to authors
@@ -563,7 +548,7 @@ export async function queryToFiltersWithResolution(
   return queryToFilters(resolvedQuery);
 }
 
-// Convert parsed query to Nostr filters (synchronous version for backward compatibility)
+// Convert parsed query to Nostr filters
 export function queryToFilters(parsedQuery: ParsedQuery): Filter[] {
   const filters: Filter[] = [];
 

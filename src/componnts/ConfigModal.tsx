@@ -1,9 +1,14 @@
 import { createSignal, Show, For } from "solid-js";
-import type { NostrDBConfig } from "window.nostrdb.js/dist/interface";
 import {
+  DEFAULT_LOOKUP_PROVIDERS,
+  DEFAULT_NIP50_RELAY,
+  DEFAULT_OPEN_RANKING_PROVIDER_URL,
+  OPEN_RANKING_PROVIDER_URLS,
   getConfig,
   updateConfig,
   resetConfig,
+  type Config,
+  type LookupProviderId,
 } from "../services/ConfigService";
 
 interface ConfigModalProps {
@@ -11,10 +16,8 @@ interface ConfigModalProps {
   onClose: () => void;
 }
 
-type ProviderId = "vertex" | "primal" | "local" | "relatr";
-
 interface Provider {
-  id: ProviderId;
+  id: LookupProviderId;
   enabled: boolean;
   name: string;
   description: string;
@@ -26,28 +29,33 @@ export default function ConfigModal(props: ConfigModalProps) {
 
   // Initialize providers array from config, preserving order
   const initProviders = (): Provider[] => {
-    const configProviders = currentConfig.lookupProviders || [
-      "vertex",
-      "primal",
-      "local",
-    ];
-    const allProviders: Record<ProviderId, Omit<Provider, "id" | "enabled">> = {
-      vertex: {
-        name: "Vertex",
-        description:
-          "Uses Vertex relay for user search (requires window.nostr)",
-      },
+    const configProviders =
+      currentConfig.lookupProviders || DEFAULT_LOOKUP_PROVIDERS;
+    const allProviders: Record<
+      LookupProviderId,
+      Omit<Provider, "id" | "enabled">
+    > = {
       primal: {
         name: "Primal",
         description: "Uses Primal cache server for user search",
       },
       local: {
         name: "Local",
-        description: "Uses local relays for user search",
+        description: "Uses NIP-50 search on local relays for user search",
+      },
+      nip50: {
+        name: "Remote Relay",
+        description: "Uses NIP-50 search on a remote relay for user search",
       },
       relatr: {
         name: "Relatr",
-        description: "Uses Relatr server for user search",
+        description:
+          "Uses the Relatr trust-scored search server (ContextVM over Nostr)",
+      },
+      openranking: {
+        name: "Open Ranking",
+        description:
+          "Uses an Open Ranking (ORE) web-of-trust provider for user search",
       },
     };
 
@@ -60,7 +68,7 @@ export default function ConfigModal(props: ConfigModalProps) {
 
     // Add any missing providers at the end (disabled)
     const existingIds = new Set(configProviders);
-    (Object.keys(allProviders) as ProviderId[]).forEach((id) => {
+    (Object.keys(allProviders) as LookupProviderId[]).forEach((id) => {
       if (!existingIds.has(id)) {
         orderedProviders.push({
           id,
@@ -76,7 +84,7 @@ export default function ConfigModal(props: ConfigModalProps) {
   // Form state
   const [providers, setProviders] = createSignal<Provider[]>(initProviders());
   const [expandedProvider, setExpandedProvider] =
-    createSignal<ProviderId | null>(null);
+    createSignal<LookupProviderId | null>(null);
 
   const [localRelays, setLocalRelays] = createSignal(
     currentConfig.localRelays?.join("\n") || "",
@@ -84,17 +92,17 @@ export default function ConfigModal(props: ConfigModalProps) {
   const [primalCache, setPrimalCache] = createSignal(
     currentConfig.primal?.cache || "",
   );
-  const [vertexRelay, setVertexRelay] = createSignal(
-    currentConfig.vertex?.relay || "",
-  );
-  const [vertexMethod, setVertexMethod] = createSignal(
-    currentConfig.vertex?.method || "globalPagerank",
+  const [nip50Relay, setNip50Relay] = createSignal(
+    currentConfig.nip50?.relay || DEFAULT_NIP50_RELAY,
   );
   const [relatrPubkey, setRelatrPubkey] = createSignal(
     currentConfig.relatr?.pubkey || "",
   );
   const [relatrRelays, setRelatrRelays] = createSignal(
     currentConfig.relatr?.relays?.join("\n") || "",
+  );
+  const [openRankingProvider, setOpenRankingProvider] = createSignal(
+    currentConfig.openRanking?.provider || DEFAULT_OPEN_RANKING_PROVIDER_URL,
   );
   const [blossomProxy, setBlossomProxy] = createSignal(
     currentConfig.blossomProxy || "",
@@ -128,13 +136,13 @@ export default function ConfigModal(props: ConfigModalProps) {
     });
   };
 
-  const toggleProvider = (id: ProviderId, enabled: boolean) => {
+  const toggleProvider = (id: LookupProviderId, enabled: boolean) => {
     setProviders((prev) =>
       prev.map((p) => (p.id === id ? { ...p, enabled } : p)),
     );
   };
 
-  const toggleExpanded = (id: ProviderId) => {
+  const toggleExpanded = (id: LookupProviderId) => {
     setExpandedProvider((prev) => (prev === id ? null : id));
   };
 
@@ -159,36 +167,39 @@ export default function ConfigModal(props: ConfigModalProps) {
     // Check if each provider is enabled
     const primalEnabled =
       providers().find((p) => p.id === "primal")?.enabled ?? false;
-    const vertexEnabled =
-      providers().find((p) => p.id === "vertex")?.enabled ?? false;
+    const nip50Enabled =
+      providers().find((p) => p.id === "nip50")?.enabled ?? false;
     const relatrEnabled =
       providers().find((p) => p.id === "relatr")?.enabled ?? false;
+    const openRankingEnabled =
+      providers().find((p) => p.id === "openranking")?.enabled ?? false;
 
-    const updates: Partial<NostrDBConfig> & { blossomProxy?: string } = {
-      // Only set localRelays if not empty, otherwise let library use defaults
+    const updates: Config = {
+      // Only set localRelays if not empty, otherwise use the app default
       ...(parsedLocalRelays.length > 0
         ? { localRelays: parsedLocalRelays }
         : {}),
       primal: primalEnabled
-        ? {
-            cache: primalCache().trim() || undefined,
-          }
+        ? { cache: primalCache().trim() || undefined }
         : undefined,
-      vertex: vertexEnabled
-        ? {
-            relay: vertexRelay().trim() || undefined,
-            method: vertexMethod(),
-          }
+      nip50: nip50Enabled
+        ? { relay: nip50Relay().trim() || undefined }
         : undefined,
       relatr:
-        relatrEnabled && relatrPubkey().trim()
+        relatrEnabled &&
+        (relatrPubkey().trim() || parsedRelatrRelays.length > 0)
           ? {
-              pubkey: relatrPubkey().trim(),
+              pubkey: relatrPubkey().trim() || undefined,
               relays: parsedRelatrRelays,
             }
           : undefined,
+      openRanking: openRankingEnabled
+        ? { provider: openRankingProvider().trim() || undefined }
+        : undefined,
       lookupProviders:
-        enabledProviders.length > 0 ? enabledProviders : ["local"],
+        enabledProviders.length > 0
+          ? enabledProviders
+          : DEFAULT_LOOKUP_PROVIDERS,
       blossomProxy: blossomProxy().trim() || undefined,
     };
 
@@ -222,7 +233,7 @@ export default function ConfigModal(props: ConfigModalProps) {
 
         <div class="space-y-6 w-full">
           {/* Local Relays */}
-          <fieldset class="w-full">
+          <fieldset class="w-full min-w-0">
             <label class="label">
               <span class="label-text font-semibold">Local Relay URLs</span>
               <span class="label-text-alt text-base-content/60">Optional</span>
@@ -234,15 +245,14 @@ export default function ConfigModal(props: ConfigModalProps) {
               value={localRelays()}
               onInput={(e) => setLocalRelays(e.currentTarget.value)}
             />
-            <div class="label">
-              <span class="label-text-alt text-base-content/60">
-                One relay URL per line. Leave empty to use library defaults.
-              </span>
+            <div class="text-xs text-base-content/60">
+              One relay URL per line. Leave empty to use the default
+              (ws://localhost:4869).
             </div>
           </fieldset>
 
           {/* Blossom Proxy */}
-          <fieldset class="w-full">
+          <fieldset class="w-full min-w-0">
             <label class="label">
               <span class="label-text font-semibold">Blossom Proxy URL</span>
               <span class="label-text-alt text-base-content/60">Optional</span>
@@ -254,22 +264,19 @@ export default function ConfigModal(props: ConfigModalProps) {
               value={blossomProxy()}
               onInput={(e) => setBlossomProxy(e.currentTarget.value)}
             />
-            <div class="label">
-              <span class="label-text-alt text-base-content/60">
-                Blossom proxy server URL for caching blossom files. A server on
-                localhost:24242 is detected automatically.
-              </span>
+            <div class="text-xs text-base-content/60">
+              Blossom proxy server URL for caching blossom files. A server on
+              localhost:24242 is detected automatically.
             </div>
           </fieldset>
 
           {/* Lookup Providers */}
           <div class="divider">Lookup Providers</div>
 
-          <div class="label">
-            <span class="label-text-alt">
-              Providers are tried in order from top to bottom. Use the arrow
-              buttons to reorder and toggle switches to enable/disable.
-            </span>
+          <div class="text-xs text-base-content/70">
+            Username resolution providers are tried in order from top to bottom.
+            Use the arrow buttons to reorder and toggle switches to
+            enable/disable.
           </div>
 
           <div class="space-y-2 w-full">
@@ -335,7 +342,7 @@ export default function ConfigModal(props: ConfigModalProps) {
                     <div class="mt-2 pl-8 space-y-2 border-t pt-2">
                       {/* Primal settings */}
                       <Show when={provider.id === "primal"}>
-                        <fieldset class="w-full">
+                        <fieldset class="w-full min-w-0">
                           <label class="label">
                             <span class="label-text">
                               Primal Cache Server URL
@@ -344,77 +351,48 @@ export default function ConfigModal(props: ConfigModalProps) {
                           </label>
                           <input
                             type="text"
-                            placeholder="https://primal.net/api"
+                            placeholder="wss://cache2.primal.net/v1"
                             class="input input-bordered w-full"
                             value={primalCache()}
                             onInput={(e) =>
                               setPrimalCache(e.currentTarget.value)
                             }
                           />
-                          <div class="label">
-                            <span class="label-text-alt">
-                              Override the default Primal cache server
-                            </span>
+                          <div class="text-xs text-base-content/60">
+                            Override the default Primal cache server
                           </div>
                         </fieldset>
                       </Show>
 
-                      {/* Vertex settings */}
-                      <Show when={provider.id === "vertex"}>
-                        <fieldset class="w-full">
+                      {/* Remote NIP-50 relay settings */}
+                      <Show when={provider.id === "nip50"}>
+                        <fieldset class="w-full min-w-0">
                           <label class="label">
-                            <span class="label-text">Vertex Relay URL</span>
+                            <span class="label-text">Relay URL</span>
                             <span class="label-text-alt">Optional</span>
                           </label>
                           <input
                             type="text"
-                            placeholder="wss://relay.vertex.com"
+                            placeholder={DEFAULT_NIP50_RELAY}
                             class="input input-bordered w-full"
-                            value={vertexRelay()}
+                            value={nip50Relay()}
                             onInput={(e) =>
-                              setVertexRelay(e.currentTarget.value)
+                              setNip50Relay(e.currentTarget.value)
                             }
                           />
-                          <div class="label">
-                            <span class="label-text-alt">
-                              Override the default Vertex relay
-                            </span>
-                          </div>
-                        </fieldset>
-
-                        <fieldset class="w-full">
-                          <label class="label">
-                            <span class="label-text">Sort Method</span>
-                          </label>
-                          <select
-                            class="select select-bordered w-full"
-                            value={vertexMethod()}
-                            onChange={(e) =>
-                              setVertexMethod(e.currentTarget.value as any)
-                            }
-                          >
-                            <option value="globalPagerank">
-                              Global Pagerank
-                            </option>
-                            <option value="userPagerank">User Pagerank</option>
-                            <option value="followDistance">
-                              Follow Distance
-                            </option>
-                          </select>
-                          <div class="label">
-                            <span class="label-text-alt">
-                              Method to use for sorting Vertex search results
-                            </span>
+                          <div class="text-xs text-base-content/60">
+                            A relay that supports NIP-50 search, used for user
+                            search. Leave empty to use {DEFAULT_NIP50_RELAY}.
                           </div>
                         </fieldset>
                       </Show>
 
                       {/* Relatr settings */}
                       <Show when={provider.id === "relatr"}>
-                        <fieldset class="w-full">
+                        <fieldset class="w-full min-w-0">
                           <label class="label">
                             <span class="label-text">Relatr Server Pubkey</span>
-                            <span class="label-text-alt">Required</span>
+                            <span class="label-text-alt">Optional</span>
                           </label>
                           <input
                             type="text"
@@ -425,17 +403,16 @@ export default function ConfigModal(props: ConfigModalProps) {
                               setRelatrPubkey(e.currentTarget.value)
                             }
                           />
-                          <div class="label">
-                            <span class="label-text-alt">
-                              Public key of the Relatr server
-                            </span>
+                          <div class="text-xs text-base-content/60">
+                            Public key of the Relatr server. Leave empty to use
+                            the default server.
                           </div>
                         </fieldset>
 
-                        <fieldset class="w-full">
+                        <fieldset class="w-full min-w-0">
                           <label class="label">
                             <span class="label-text">Relatr Relay URLs</span>
-                            <span class="label-text-alt">Required</span>
+                            <span class="label-text-alt">Optional</span>
                           </label>
                           <textarea
                             placeholder="wss://relay1.example.com&#10;wss://relay2.example.com"
@@ -446,10 +423,38 @@ export default function ConfigModal(props: ConfigModalProps) {
                               setRelatrRelays(e.currentTarget.value)
                             }
                           />
-                          <div class="label">
-                            <span class="label-text-alt">
-                              One relay URL per line to connect to Relatr server
-                            </span>
+                          <div class="text-xs text-base-content/60">
+                            One relay URL per line to reach the Relatr server.
+                            Leave empty to use the default.
+                          </div>
+                        </fieldset>
+                      </Show>
+
+                      {/* Open Ranking settings */}
+                      <Show when={provider.id === "openranking"}>
+                        <fieldset class="w-full min-w-0">
+                          <label class="label">
+                            <span class="label-text">Provider URL</span>
+                            <span class="label-text-alt">Optional</span>
+                          </label>
+                          <input
+                            type="text"
+                            list="open-ranking-providers"
+                            placeholder={DEFAULT_OPEN_RANKING_PROVIDER_URL}
+                            class="input input-bordered w-full"
+                            value={openRankingProvider()}
+                            onInput={(e) =>
+                              setOpenRankingProvider(e.currentTarget.value)
+                            }
+                          />
+                          <datalist id="open-ranking-providers">
+                            <For each={OPEN_RANKING_PROVIDER_URLS}>
+                              {(url) => <option value={url} />}
+                            </For>
+                          </datalist>
+                          <div class="text-xs text-base-content/60">
+                            Base URL of an Open Ranking (ORE) provider. Choose a
+                            known provider or enter a custom URL.
                           </div>
                         </fieldset>
                       </Show>

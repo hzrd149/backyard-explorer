@@ -1,6 +1,7 @@
 import type { NostrEvent } from "nostr-tools";
 import type { ProfilePointer } from "nostr-tools/nip19";
 import { parseQuery, queryToFiltersWithResolution } from "./QueryParser";
+import { getLookupProviders } from "./ConfigService";
 
 // Cache for search support status
 let searchSupported: boolean | null = null;
@@ -19,7 +20,6 @@ async function checkSearchSupport(): Promise<boolean> {
     }
 
     const features = await db.supports();
-    // @ts-ignore
     searchSupported = features.includes("search");
     return searchSupported;
   } catch (error) {
@@ -34,36 +34,9 @@ export async function isSearchSupported(): Promise<boolean> {
   return await checkSearchSupport();
 }
 
-// Cache for lookup support status
-let lookupSupported: boolean | null = null;
-
-// Check if lookup is supported by the database
-async function checkLookupSupport(): Promise<boolean> {
-  if (lookupSupported !== null) {
-    return lookupSupported;
-  }
-
-  try {
-    const db = window.nostrdb;
-    if (!db) {
-      lookupSupported = false;
-      return false;
-    }
-
-    const features = await db.supports();
-    // @ts-ignore
-    lookupSupported = features.includes("lookup");
-    return lookupSupported;
-  } catch (error) {
-    console.error("Failed to check lookup support:", error);
-    lookupSupported = false;
-    return false;
-  }
-}
-
-// Check if lookup is supported (cached)
+// Check if lookup is supported (at least one provider is configured)
 export async function isLookupSupported(): Promise<boolean> {
-  return await checkLookupSupport();
+  return getLookupProviders().length > 0;
 }
 
 // Check if a query requires search functionality (has search text)
@@ -78,7 +51,7 @@ export function requiresProfileLookup(query: string): boolean {
   return parsedQuery.profileLookup.length > 0;
 }
 
-// Search for events using the filters method with username resolution
+// Search for events using the query method with username resolution
 export async function searchEvents(query: string): Promise<NostrEvent[]> {
   const db = window.nostrdb;
   const supported = await checkSearchSupport();
@@ -97,15 +70,15 @@ export async function searchEvents(query: string): Promise<NostrEvent[]> {
     // Parse the query to extract filters
     const parsedQuery = parseQuery(query);
 
-    // Use the new function that resolves usernames
+    // Use the function that resolves usernames via lookup providers
     const filters = await queryToFiltersWithResolution(parsedQuery);
 
     // Debug: Log the query and generated filters
     console.log(`Searching for: "${query}"`);
     console.log("Generated filters:", filters);
 
-    // Use the filters functionality which returns a Promise of events
-    const events = await db.filters(filters);
+    // Use the query functionality which returns a Promise of events
+    const events = await db.query(filters);
 
     return events || [];
   } catch (error) {
@@ -114,14 +87,8 @@ export async function searchEvents(query: string): Promise<NostrEvent[]> {
   }
 }
 
-// Search for profiles using the lookup method
+// Search for profiles using the configured lookup providers
 export async function searchProfiles(query: string): Promise<ProfilePointer[]> {
-  const db = window.nostrdb;
-
-  if (!db) {
-    throw new Error("NostrDB not available");
-  }
-
   try {
     // Parse the query to extract profile lookup terms
     const parsedQuery = parseQuery(query);
@@ -131,16 +98,16 @@ export async function searchProfiles(query: string): Promise<ProfilePointer[]> {
     }
 
     // Check if lookup is supported
-    const features = await db.supports();
-    if (!features.includes("lookup")) {
-      throw new Error("Lookup feature not supported by database");
+    if (!(await isLookupSupported())) {
+      throw new Error("No lookup providers are configured");
     }
 
-    // Use the first profile lookup term (limit to 10 results)
+    // Use the first profile lookup term
     const searchTerm = parsedQuery.profileLookup[0];
     console.log(`Looking up profiles for: "${searchTerm}"`);
 
-    const results = await db.lookup(searchTerm, 10);
+    const { lookupProfiles } = await import("./LookupService");
+    const results = await lookupProfiles(searchTerm, 10);
     console.log(`Found ${results.length} profile results:`, results);
 
     return results;

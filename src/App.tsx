@@ -238,7 +238,7 @@ function App() {
                       >
                         github.com/hzrd149/applesauce/tree/master/packages/extra
                       </a>{" "}
-                      for user lookup integration
+                      for event parsing helpers and user search
                     </span>
                   </li>
                   <li class="flex items-start">
@@ -246,21 +246,30 @@ function App() {
                     <span>
                       <strong>User search</strong> powered by{" "}
                       <a
-                        href="https://vertexlab.io"
+                        href="https://primal.net"
                         target="_blank"
                         rel="noopener noreferrer"
                         class="text-primary hover:underline"
                       >
-                        Vertexlab
-                      </a>{" "}
-                      and{" "}
+                        Primal
+                      </a>
+                      ,{" "}
                       <a
-                        href="https://github.com/PrimalHQ/primal-server"
+                        href="https://github.com/Open-Ranking/protocol"
                         target="_blank"
                         rel="noopener noreferrer"
                         class="text-primary hover:underline"
                       >
-                        Primal caching server
+                        Open Ranking
+                      </a>
+                      , and{" "}
+                      <a
+                        href="https://contextvm.org"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-primary hover:underline"
+                      >
+                        Relatr (ContextVM)
                       </a>
                     </span>
                   </li>
