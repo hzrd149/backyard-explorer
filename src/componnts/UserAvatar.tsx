@@ -63,6 +63,8 @@ export default function UserAvatar(props: UserAvatarProps) {
           <img
             src={profilePicture()!}
             alt={`Avatar for ${props.pubkey.slice(0, 8)}...`}
+            loading="lazy"
+            decoding="async"
             class="w-full h-full object-cover rounded-full"
             onError={() => setHasError(true)}
           />

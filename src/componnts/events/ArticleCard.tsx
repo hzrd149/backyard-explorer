@@ -72,6 +72,8 @@ export default function ArticleCard(props: ArticleCardProps) {
                 <img
                   src={image}
                   alt={title || "Article image"}
+                  loading="lazy"
+                  decoding="async"
                   class="w-full h-32 object-cover rounded-lg"
                   onError={(e) => {
                     e.currentTarget.style.display = "none";
