@@ -1,10 +1,12 @@
 import type { NostrEvent } from "nostr-tools";
 import { For, Show } from "solid-js";
-import { getPicturePostAttachments } from "applesauce-common/helpers";
 import UserAvatar from "../UserAvatar";
 import UserName from "../UserName";
 import Hashtag from "../Hashtag";
-import { resolveMediaItem, type MediaItem } from "../../services/MediaService";
+import {
+  getPicturePostMedia,
+  type MediaItem,
+} from "../../services/MediaService";
 import LazyImage from "../previews/LazyImage";
 import ProxiedBadge from "../previews/ProxiedBadge";
 import { lightboxClickHandler } from "../Lightbox";
@@ -18,36 +20,8 @@ export default function PicturePostCard(props: PicturePostCardProps) {
   const titleTag = props.picturePost.tags.find((tag) => tag[0] === "title");
   const title = titleTag?.[1] || "";
 
-  // Get media attachments using the applesauce-core helper
-  const rawAttachments = getPicturePostAttachments(props.picturePost);
-
-  // Get all x tags (hashes) from the event
-  const hashTags = props.picturePost.tags
-    .filter((tag) => tag[0] === "x")
-    .map((tag) => tag[1])
-    .filter(Boolean);
-
-  // Get all m tags (MIME types) from the event
-  const mimeTags = props.picturePost.tags
-    .filter((tag) => tag[0] === "m")
-    .map((tag) => tag[1])
-    .filter(Boolean);
-
-  // Resolve attachments (Blossom proxy + imeta thumbnails). Attachments without
-  // a URL fall back to the matching x/m tags so they can be built from the hash.
-  const attachments: MediaItem[] = rawAttachments
-    .map((attachment, index) =>
-      resolveMediaItem(
-        attachment.url,
-        {
-          ...attachment,
-          sha256: attachment.sha256 || hashTags[index] || undefined,
-          type: attachment.type || mimeTags[index] || undefined,
-        },
-        props.picturePost.pubkey,
-      ),
-    )
-    .filter((item): item is MediaItem => !!item);
+  // Resolve attachments (Blossom proxy + imeta thumbnails)
+  const attachments: MediaItem[] = getPicturePostMedia(props.picturePost);
   const openAt = (index: () => number) =>
     lightboxClickHandler(() => attachments, index);
 

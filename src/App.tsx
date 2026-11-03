@@ -1,8 +1,8 @@
-import { createSignal, onMount, For, createEffect } from "solid-js";
+import { createSignal, onMount, createEffect, createMemo } from "solid-js";
 import type { NostrEvent } from "nostr-tools";
 import type { ProfilePointer } from "nostr-tools/nip19";
 import SearchBar from "./componnts/SearchBar";
-import EventCard from "./componnts/events/EventCard";
+import ResultsDisplay from "./componnts/displays/ResultsDisplay";
 import SearchWarning from "./componnts/SearchWarning";
 import ProfileLookupResults from "./componnts/ProfileLookupResults";
 import ConfigModal from "./componnts/ConfigModal";
@@ -16,6 +16,7 @@ import {
   searchProfiles,
 } from "./services/SearchService";
 import { useSearchQuery } from "./services/URLState";
+import { stripViewTokens } from "./services/DisplayService";
 
 function App() {
   const [events, setEvents] = createSignal<NostrEvent[]>([]);
@@ -35,9 +36,12 @@ function App() {
     setSearchSupported(supported);
   });
 
+  // The query without `view:` tokens — switching display modes must not re-fetch
+  const fetchQuery = createMemo(() => stripViewTokens(query()));
+
   // Automatically search when URL query changes
   createEffect(async () => {
-    const currentQuery = query();
+    const currentQuery = fetchQuery();
     if (currentQuery.trim()) {
       await performSearch(currentQuery);
     } else {
@@ -152,8 +156,10 @@ function App() {
                   <code class="bg-base-300 px-2 py-1 rounded">
                     until:"last week"
                   </code>
-                  , or lookup profiles:{" "}
-                  <code class="bg-base-300 px-2 py-1 rounded">p:username</code>
+                  , lookup profiles:{" "}
+                  <code class="bg-base-300 px-2 py-1 rounded">p:username</code>,
+                  or change how results are shown:{" "}
+                  <code class="bg-base-300 px-2 py-1 rounded">view:images</code>
                 </p>
               </div>
 
@@ -346,12 +352,7 @@ function App() {
 
               {/* Show event results if we have any */}
               {events().length > 0 && (
-                <div class="space-y-4 max-w-4xl mx-auto">
-                  <h2 class="text-2xl font-bold mb-4">Event Results</h2>
-                  <For each={events()}>
-                    {(event) => <EventCard event={event} />}
-                  </For>
-                </div>
+                <ResultsDisplay events={events()} query={query()} />
               )}
 
               {/* Show no results message if we have neither profiles nor events */}

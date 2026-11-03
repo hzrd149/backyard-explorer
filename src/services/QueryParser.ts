@@ -13,13 +13,14 @@ export interface ParsedQuery {
   hashtags: string[]; // New field for hashtags
   profileLookup: string[]; // New field for p:<name> profile lookups
   mimeTypes: string[]; // New field for m:<ext/mime> MIME type searches (uses #m filter)
+  view?: string; // view:<mode> display mode — only affects rendering, never the filter
   since?: number;
   until?: number;
   limit?: number;
 }
 
 // Mapping of common event kind names to their numbers
-const EVENT_KIND_MAP: Record<string, number> = {
+const EVENT_KIND_MAP: Record<string, number | number[]> = {
   // Basic kinds
   note: 1,
   article: 30023,
@@ -49,8 +50,14 @@ const EVENT_KIND_MAP: Record<string, number> = {
   generic_repost: 16,
   website_reaction: 17,
   picture: 20,
-  video: 21,
+  image: 20,
+  images: 20,
+  video: [21, 22, 34235, 34236],
+  videos: [21, 22, 34235, 34236],
+  media: [20, 21, 22, 34235, 34236],
   short_video: 22,
+  addressable_video: 34235,
+  addressable_short_video: 34236,
 
   // Other common kinds
   request_vanish: 62,
@@ -426,7 +433,19 @@ export function parseQuery(query: string): ParsedQuery {
     } else if (part.startsWith("is:")) {
       const typeStr = part.split(":")[1];
       if (typeStr && typeStr in EVENT_KIND_MAP) {
-        result.kinds.push(EVENT_KIND_MAP[typeStr]);
+        const mapped = EVENT_KIND_MAP[typeStr];
+        for (const kind of Array.isArray(mapped) ? mapped : [mapped]) {
+          if (!result.kinds.includes(kind)) result.kinds.push(kind);
+        }
+      }
+    } else if (
+      part.startsWith("view:") ||
+      part.startsWith("display:") ||
+      part.startsWith("v:")
+    ) {
+      const view = part.split(":")[1];
+      if (view) {
+        result.view = view.toLowerCase();
       }
     } else if (part.startsWith("by:")) {
       const username = part.split(":")[1];

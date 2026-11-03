@@ -82,6 +82,18 @@ export const searchExamples = [
   "#artstr is:picture",
   "m:image/jpeg is:picture",
   "m:image/png is:picture",
+
+  // Display modes (view: changes how results look, not what is fetched)
+  "is:image",
+  "is:video",
+  "is:media",
+  "is:torrent",
+  "is:article",
+  "#photography view:images",
+  "by:fiatjaf view:media",
+  "is:note view:images",
+  "is:highlight view:raw",
+  "is:profile view:profiles",
 ] as const;
 
 // Examples that require login to work properly

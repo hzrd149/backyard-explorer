@@ -103,7 +103,7 @@ export default function Lightbox() {
             class="fixed inset-0 z-[100] flex flex-col bg-black/90 select-none"
             role="dialog"
             aria-modal="true"
-            aria-label="Image viewer"
+            aria-label="Media viewer"
             onClick={(e) => {
               if (e.target === e.currentTarget) closeLightbox();
             }}
@@ -170,33 +170,50 @@ export default function Lightbox() {
                 if (e.target === e.currentTarget) closeLightbox();
               }}
             >
-              {/* Show the imeta thumbnail while the full image loads */}
-              <Show when={!loaded()}>
-                <Show
-                  when={item().thumbnail}
-                  fallback={
-                    <span class="loading loading-spinner loading-lg text-white" />
-                  }
-                >
-                  <img
-                    src={item().thumbnail}
-                    alt=""
-                    class="absolute max-h-full max-w-full object-contain blur-sm"
-                  />
-                </Show>
-              </Show>
-              <img
-                src={item().url}
-                alt={item().alt ?? ""}
-                class="max-h-full max-w-full object-contain transition-opacity"
-                classList={{ "opacity-0 absolute": !loaded() }}
-                ref={(el) =>
-                  queueMicrotask(() => {
-                    if (el.complete && el.naturalWidth > 0) setLoaded(true);
-                  })
+              <Show
+                when={item().kind === "video"}
+                fallback={
+                  <>
+                    {/* Show the imeta thumbnail while the full image loads */}
+                    <Show when={!loaded()}>
+                      <Show
+                        when={item().thumbnail}
+                        fallback={
+                          <span class="loading loading-spinner loading-lg text-white" />
+                        }
+                      >
+                        <img
+                          src={item().thumbnail}
+                          alt=""
+                          class="absolute max-h-full max-w-full object-contain blur-sm"
+                        />
+                      </Show>
+                    </Show>
+                    <img
+                      src={item().url}
+                      alt={item().alt ?? ""}
+                      class="max-h-full max-w-full object-contain transition-opacity"
+                      classList={{ "opacity-0 absolute": !loaded() }}
+                      ref={(el) =>
+                        queueMicrotask(() => {
+                          if (el.complete && el.naturalWidth > 0)
+                            setLoaded(true);
+                        })
+                      }
+                      onLoad={() => setLoaded(true)}
+                    />
+                  </>
                 }
-                onLoad={() => setLoaded(true)}
-              />
+              >
+                <video
+                  src={item().url}
+                  poster={item().thumbnail}
+                  controls
+                  autoplay
+                  playsinline
+                  class="max-h-full max-w-full object-contain"
+                />
+              </Show>
 
               <Show when={count() > 1}>
                 <button
@@ -237,12 +254,28 @@ export default function Lightbox() {
                       }}
                       onClick={() => goTo(i())}
                     >
-                      <img
-                        src={thumb.thumbnail ?? thumb.url}
-                        alt=""
-                        loading="lazy"
-                        class="h-full w-full object-cover"
-                      />
+                      <Show
+                        when={thumb.kind !== "video" || thumb.thumbnail}
+                        fallback={
+                          <span class="flex h-full w-full items-center justify-center bg-white/10 text-white">
+                            ▶
+                          </span>
+                        }
+                      >
+                        <span class="relative block h-full w-full">
+                          <img
+                            src={thumb.thumbnail ?? thumb.url}
+                            alt=""
+                            loading="lazy"
+                            class="h-full w-full object-cover"
+                          />
+                          <Show when={thumb.kind === "video"}>
+                            <span class="absolute inset-0 flex items-center justify-center text-white drop-shadow">
+                              ▶
+                            </span>
+                          </Show>
+                        </span>
+                      </Show>
                     </button>
                   )}
                 </For>

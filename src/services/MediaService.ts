@@ -1,7 +1,12 @@
+import type { NostrEvent } from "nostr-tools";
 import {
+  getFileMetadata,
+  getMediaAttachments,
+  getPicturePostAttachments,
   getSha256FromURL,
   type FileMetadataFields,
 } from "applesauce-common/helpers";
+import { isImageURL, isVideoURL } from "applesauce-core/helpers";
 import { isBlossomProxiedUrl, transformBlossomUrl } from "./BlossomService";
 
 /** A resolved image ready to be displayed inline or in the lightbox */
@@ -15,6 +20,13 @@ export interface MediaItem {
   blurhash?: string;
   /** True when the full URL is served through the local Blossom proxy */
   proxied: boolean;
+  /** Media type, defaults to "image" when unset */
+  kind?: "image" | "video";
+}
+
+/** A media item along with the event it came from */
+export interface EventMediaItem extends MediaItem {
+  event: NostrEvent;
 }
 
 /**
@@ -74,5 +86,103 @@ export function resolveMediaItem(
     dimensions: attachment?.dimensions,
     blurhash: attachment?.blurhash,
     proxied: isBlossomProxiedUrl(full),
+    kind: mediaKind(attachment?.type, url ?? attachment?.url),
   };
+}
+
+/** Classify a MIME type / URL as image or video (undefined when neither) */
+function mediaKind(
+  type: string | undefined,
+  url: string | undefined,
+): "image" | "video" | undefined {
+  if (type?.startsWith("image/")) return "image";
+  if (type?.startsWith("video/")) return "video";
+  if (url && isVideoURL(url)) return "video";
+  if (url && isImageURL(url)) return "image";
+  return undefined;
+}
+
+/**
+ * Resolve the images of a NIP-68 picture post. Attachments without a URL fall
+ * back to the matching x/m tags so they can be built from the hash.
+ */
+export function getPicturePostMedia(event: NostrEvent): MediaItem[] {
+  const hashTags = event.tags
+    .filter((t) => t[0] === "x" && t[1])
+    .map((t) => t[1]);
+  const mimeTags = event.tags
+    .filter((t) => t[0] === "m" && t[1])
+    .map((t) => t[1]);
+
+  return getPicturePostAttachments(event)
+    .map((attachment, index) =>
+      resolveMediaItem(
+        attachment.url,
+        {
+          ...attachment,
+          sha256: attachment.sha256 || hashTags[index] || undefined,
+          type: attachment.type || mimeTags[index] || undefined,
+        },
+        event.pubkey,
+      ),
+    )
+    .filter((item): item is MediaItem => !!item)
+    .map((item) => ({ ...item, kind: item.kind ?? "image" }));
+}
+
+const URL_REGEX = /https?:\/\/[^\s<>"']+/g;
+
+/**
+ * Extract every displayable image and video from an event: picture posts,
+ * NIP-94 file metadata, NIP-71 videos, and imeta tags / media URLs in content.
+ */
+export function extractEventMedia(event: NostrEvent): EventMediaItem[] {
+  let items: MediaItem[] = [];
+
+  if (event.kind === 20) {
+    items = getPicturePostMedia(event);
+  } else if (event.kind === 1063) {
+    const metadata = getFileMetadata(event);
+    const item =
+      metadata && resolveMediaItem(metadata.url, metadata, event.pubkey);
+    if (item) items = [item];
+  } else {
+    const attachments = getMediaAttachments(event);
+    const seen = new Set<string>();
+
+    // URLs mentioned in the content, paired with their imeta attachment
+    for (const url of event.content.match(URL_REGEX) ?? []) {
+      if (!isImageURL(url) && !isVideoURL(url)) continue;
+      const attachment = findAttachmentForUrl(attachments, url);
+      const item = resolveMediaItem(url, attachment, event.pubkey);
+      if (item && !seen.has(item.url)) {
+        seen.add(item.url);
+        items.push(item);
+      }
+    }
+
+    // imeta attachments that are not referenced in the content (e.g. NIP-71)
+    for (const attachment of attachments) {
+      if (attachment.url && seen.has(attachment.url)) continue;
+      const item = resolveMediaItem(attachment.url, attachment, event.pubkey);
+      if (item && !seen.has(item.url)) {
+        seen.add(item.url);
+        items.push(item);
+      }
+    }
+
+    // NIP-71 videos without a type hint are still videos
+    if (
+      event.kind === 21 ||
+      event.kind === 22 ||
+      event.kind === 34235 ||
+      event.kind === 34236
+    ) {
+      items = items.map((item) => ({ ...item, kind: item.kind ?? "video" }));
+    }
+  }
+
+  return items
+    .filter((item) => item.kind === "image" || item.kind === "video")
+    .map((item) => ({ ...item, event }));
 }
