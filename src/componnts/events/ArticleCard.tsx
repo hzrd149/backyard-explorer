@@ -3,6 +3,7 @@ import { naddrEncode } from "nostr-tools/nip19";
 import UserAvatar from "../UserAvatar";
 import UserName from "../UserName";
 import Hashtag from "../Hashtag";
+import LazyImage from "../previews/LazyImage";
 
 interface ArticleCardProps {
   article: NostrEvent;
@@ -69,15 +70,10 @@ export default function ArticleCard(props: ArticleCardProps) {
             {/* Article Image */}
             {image && (
               <div class="mb-3">
-                <img
+                <LazyImage
                   src={image}
                   alt={title || "Article image"}
-                  loading="lazy"
-                  decoding="async"
-                  class="w-full h-32 object-cover rounded-lg"
-                  onError={(e) => {
-                    e.currentTarget.style.display = "none";
-                  }}
+                  class="w-full aspect-video object-cover rounded-lg"
                 />
               </div>
             )}

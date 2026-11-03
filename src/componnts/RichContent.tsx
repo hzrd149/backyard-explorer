@@ -18,6 +18,7 @@ import {
 } from "../services/BlossomService.ts";
 import { ImagePreview, VideoPreview } from "./previews/index.ts";
 import UserName from "./UserName.tsx";
+import LazyImage from "./previews/LazyImage.tsx";
 
 /**
  * Resolve the display URL — applies the Blossom proxy when the URL is a
@@ -85,10 +86,10 @@ function renderNode(node: Content, pubkey: string | undefined) {
             {(item) => (
               <div class="flex-none snap-start relative">
                 <a href={item.url} target="_blank" rel="noopener noreferrer">
-                  <img
+                  <LazyImage
                     src={item.url}
                     class="h-48 w-auto min-w-48 rounded-lg object-cover"
-                    loading="lazy"
+                    placeholderClass="h-48"
                     onError={(e) => {
                       e.currentTarget
                         .closest(".relative")!

@@ -1,4 +1,4 @@
-import { Show } from "solid-js";
+import { createSignal, Show } from "solid-js";
 import { createInViewport } from "./createInViewport";
 
 interface VideoPreviewProps {
@@ -13,6 +13,8 @@ export default function VideoPreview(props: VideoPreviewProps) {
   // Don't attach src/poster until the video is near the viewport, and even then
   // only fetch metadata so the Blossom cache isn't asked for every video in the feed.
   const [ref, visible] = createInViewport();
+  // Hold a 16:9 placeholder until the video's dimensions are known
+  const [ready, setReady] = createSignal(false);
 
   return (
     <div class="relative" ref={ref}>
@@ -21,6 +23,8 @@ export default function VideoPreview(props: VideoPreviewProps) {
         controls
         preload={visible() ? "metadata" : "none"}
         class="w-full max-h-[80vh] object-cover rounded-lg"
+        classList={{ "aspect-video skeleton": !ready() }}
+        onLoadedMetadata={() => setReady(true)}
         poster={visible() ? props.thumbnail || props.previewImage : undefined}
       >
         Your browser does not support the video tag.

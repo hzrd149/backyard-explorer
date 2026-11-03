@@ -1,4 +1,5 @@
 import { Show } from "solid-js";
+import LazyImage from "./LazyImage";
 
 interface ImagePreviewProps {
   url: string;
@@ -11,11 +12,11 @@ export default function ImagePreview(props: ImagePreviewProps) {
   return (
     <div class="relative inline-block">
       <a href={props.url} target="_blank" rel="noopener noreferrer">
-        <img
+        <LazyImage
           src={props.url}
           alt={props.alt || "Image preview"}
           class="rounded-lg max-h-[80vh]"
-          loading="lazy"
+          placeholderClass="w-[36rem] max-w-full"
           onError={(e) => {
             e.currentTarget
               .closest(".relative")!

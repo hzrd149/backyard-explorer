@@ -8,6 +8,7 @@ import {
   transformBlossomUrl,
   isBlossomProxiedUrl,
 } from "../../services/BlossomService";
+import LazyImage from "../previews/LazyImage";
 
 interface PicturePostCardProps {
   picturePost: NostrEvent;
@@ -150,11 +151,11 @@ export default function PicturePostCard(props: PicturePostCardProps) {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <img
+                  <LazyImage
                     src={attachments[0].url}
                     alt={attachments[0].alt || title || "Picture post"}
                     class="rounded-lg object-cover max-h-[80vh]"
-                    loading="lazy"
+                    placeholderClass="w-[36rem] max-w-full"
                   />
                 </a>
                 <Show when={attachments[0].proxied}>
@@ -182,18 +183,17 @@ export default function PicturePostCard(props: PicturePostCardProps) {
               <div class="grid grid-cols-2 gap-2">
                 <For each={attachments.slice(0, 4)}>
                   {(attachment, index) => (
-                    <div class="relative aspect-square">
+                    <div class="relative aspect-video">
                       <a
                         href={attachment.url}
                         target="_blank"
                         rel="noopener noreferrer"
                         class="block w-full h-full"
                       >
-                        <img
+                        <LazyImage
                           src={attachment.url}
                           alt={attachment.alt || `Image ${index() + 1}`}
                           class="w-full h-full rounded-lg object-cover"
-                          loading="lazy"
                         />
                       </a>
                       <Show when={attachment.proxied}>
@@ -219,7 +219,7 @@ export default function PicturePostCard(props: PicturePostCardProps) {
                   )}
                 </For>
                 {attachments.length > 4 && (
-                  <div class="aspect-square bg-base-200 rounded-lg flex items-center justify-center">
+                  <div class="aspect-video bg-base-200 rounded-lg flex items-center justify-center">
                     <span class="text-base-content/50 font-medium">
                       +{attachments.length - 4} more
                     </span>
