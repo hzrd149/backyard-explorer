@@ -1,3 +1,5 @@
+import { pauseWhenOffscreen } from "./createInViewport";
+
 interface AudioPreviewProps {
   url: string;
   title?: string;
@@ -31,7 +33,12 @@ export default function AudioPreview(props: AudioPreviewProps) {
             <p class="text-xs text-base-content/50">{props.duration}</p>
           )}
         </div>
-        <audio controls preload="none" class="flex-shrink-0">
+        <audio
+          ref={pauseWhenOffscreen}
+          controls
+          preload="none"
+          class="flex-shrink-0"
+        >
           <source src={props.url} type="audio/mpeg" />
           <source src={props.url} type="audio/wav" />
           <source src={props.url} type="audio/ogg" />

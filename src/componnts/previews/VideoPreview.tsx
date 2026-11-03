@@ -1,5 +1,5 @@
 import { createSignal, Show } from "solid-js";
-import { createInViewport } from "./createInViewport";
+import { createInViewport, pauseWhenOffscreen } from "./createInViewport";
 
 interface VideoPreviewProps {
   url: string;
@@ -19,6 +19,7 @@ export default function VideoPreview(props: VideoPreviewProps) {
   return (
     <div class="relative" ref={ref}>
       <video
+        ref={pauseWhenOffscreen}
         src={visible() ? props.url : undefined}
         controls
         preload={visible() ? "metadata" : "none"}

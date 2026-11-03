@@ -30,3 +30,21 @@ export function createInViewport(rootMargin = "200px") {
 
   return [ref, visible] as const;
 }
+
+/**
+ * Ref callback that pauses a video or audio element whenever it scrolls fully
+ * out of the viewport, or when the component is removed.
+ */
+export function pauseWhenOffscreen(el: HTMLMediaElement) {
+  if (typeof IntersectionObserver === "undefined") return;
+  const observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting && !el.paused) el.pause();
+    }
+  });
+  observer.observe(el);
+  onCleanup(() => {
+    observer.disconnect();
+    el.pause();
+  });
+}
