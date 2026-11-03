@@ -3,6 +3,7 @@ import UserAvatar from "../UserAvatar";
 import UserName from "../UserName";
 import Hashtag from "../Hashtag";
 import RichContent from "../RichContent.tsx";
+import { getMediaAttachments } from "applesauce-common/helpers";
 
 interface NoteCardProps {
   note: NostrEvent;
@@ -37,6 +38,7 @@ export default function NoteCard(props: NoteCardProps) {
             <RichContent
               content={props.note.content}
               pubkey={props.note.pubkey}
+              attachments={getMediaAttachments(props.note)}
             />
 
             {props.note.tags && props.note.tags.length > 0 && (

@@ -4,11 +4,10 @@ import { getPicturePostAttachments } from "applesauce-common/helpers";
 import UserAvatar from "../UserAvatar";
 import UserName from "../UserName";
 import Hashtag from "../Hashtag";
-import {
-  transformBlossomUrl,
-  isBlossomProxiedUrl,
-} from "../../services/BlossomService";
+import { resolveMediaItem, type MediaItem } from "../../services/MediaService";
 import LazyImage from "../previews/LazyImage";
+import ProxiedBadge from "../previews/ProxiedBadge";
+import { lightboxClickHandler } from "../Lightbox";
 
 interface PicturePostCardProps {
   picturePost: NostrEvent;
@@ -34,32 +33,23 @@ export default function PicturePostCard(props: PicturePostCardProps) {
     .map((tag) => tag[1])
     .filter(Boolean);
 
-  // Transform attachment URLs using Blossom proxy if configured
-  // Handle attachments without URLs but with hashes
-  const attachments = rawAttachments
-    .map((attachment, index) => {
-      // Check if attachment has a hash property, or use hash from tags if available
-      const hash = attachment.sha256 || hashTags[index] || undefined;
-
-      // Get MIME type from attachment or tags
-      const mimeType = attachment.type || mimeTags[index] || undefined;
-
-      const transformedUrl = transformBlossomUrl(attachment.url || null, {
-        sha256: hash,
-        type: mimeType,
-        pubkey: props.picturePost.pubkey,
-      });
-
-      const finalUrl = transformedUrl || attachment.url || undefined;
-      const proxied = finalUrl ? isBlossomProxiedUrl(finalUrl) : false;
-
-      return {
-        ...attachment,
-        url: finalUrl,
-        proxied,
-      };
-    })
-    .filter((attachment) => attachment.url); // Filter out attachments without URLs
+  // Resolve attachments (Blossom proxy + imeta thumbnails). Attachments without
+  // a URL fall back to the matching x/m tags so they can be built from the hash.
+  const attachments: MediaItem[] = rawAttachments
+    .map((attachment, index) =>
+      resolveMediaItem(
+        attachment.url,
+        {
+          ...attachment,
+          sha256: attachment.sha256 || hashTags[index] || undefined,
+          type: attachment.type || mimeTags[index] || undefined,
+        },
+        props.picturePost.pubkey,
+      ),
+    )
+    .filter((item): item is MediaItem => !!item);
+  const openAt = (index: () => number) =>
+    lightboxClickHandler(() => attachments, index);
 
   // Get hashtags
   const hashtags = props.picturePost.tags
@@ -150,6 +140,8 @@ export default function PicturePostCard(props: PicturePostCardProps) {
                   href={attachments[0].url}
                   target="_blank"
                   rel="noopener noreferrer"
+                  class="cursor-zoom-in"
+                  onClick={openAt(() => 0)}
                 >
                   <LazyImage
                     src={attachments[0].url}
@@ -159,23 +151,7 @@ export default function PicturePostCard(props: PicturePostCardProps) {
                   />
                 </a>
                 <Show when={attachments[0].proxied}>
-                  <div
-                    class="absolute top-1.5 right-1.5 bg-success text-success-content rounded-full p-0.5 shadow"
-                    title="Served via local Blossom proxy"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="h-3.5 w-3.5"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path
-                        fill-rule="evenodd"
-                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                        clip-rule="evenodd"
-                      />
-                    </svg>
-                  </div>
+                  <ProxiedBadge />
                 </Show>
               </div>
             ) : (
@@ -188,42 +164,31 @@ export default function PicturePostCard(props: PicturePostCardProps) {
                         href={attachment.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        class="block w-full h-full"
+                        class="block w-full h-full cursor-zoom-in"
+                        onClick={openAt(index)}
                       >
                         <LazyImage
-                          src={attachment.url}
+                          src={attachment.thumbnail ?? attachment.url}
+                          fallbackSrc={attachment.url}
                           alt={attachment.alt || `Image ${index() + 1}`}
                           class="w-full h-full rounded-lg object-cover"
                         />
                       </a>
                       <Show when={attachment.proxied}>
-                        <div
-                          class="absolute top-1.5 right-1.5 bg-success text-success-content rounded-full p-0.5 shadow"
-                          title="Served via local Blossom proxy"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="h-3.5 w-3.5"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                          >
-                            <path
-                              fill-rule="evenodd"
-                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                              clip-rule="evenodd"
-                            />
-                          </svg>
-                        </div>
+                        <ProxiedBadge />
                       </Show>
                     </div>
                   )}
                 </For>
                 {attachments.length > 4 && (
-                  <div class="aspect-video bg-base-200 rounded-lg flex items-center justify-center">
+                  <button
+                    class="aspect-video bg-base-200 hover:bg-base-300 rounded-lg flex items-center justify-center cursor-zoom-in"
+                    onClick={openAt(() => 4)}
+                  >
                     <span class="text-base-content/50 font-medium">
                       +{attachments.length - 4} more
                     </span>
-                  </div>
+                  </button>
                 )}
               </div>
             )}

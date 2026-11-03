@@ -6,6 +6,7 @@ import EventCard from "./componnts/events/EventCard";
 import SearchWarning from "./componnts/SearchWarning";
 import ProfileLookupResults from "./componnts/ProfileLookupResults";
 import ConfigModal from "./componnts/ConfigModal";
+import Lightbox from "./componnts/Lightbox";
 import { SearchProvider } from "./context/SearchContext";
 import {
   isSearchSupported,
@@ -389,6 +390,7 @@ function App() {
           )}
         </div>
       </div>
+      <Lightbox />
     </SearchProvider>
   );
 }

@@ -2,6 +2,8 @@ import { createEffect, createSignal, on } from "solid-js";
 
 interface LazyImageProps {
   src?: string;
+  /** Used if `src` fails to load (e.g. a broken imeta thumbnail) */
+  fallbackSrc?: string;
   alt?: string;
   /** Classes applied to the image once it has loaded */
   class?: string;
@@ -19,10 +21,17 @@ export default function LazyImage(props: LazyImageProps) {
     "loading",
   );
 
+  const [useFallback, setUseFallback] = createSignal(false);
+  const src = () =>
+    useFallback() && props.fallbackSrc ? props.fallbackSrc : props.src;
+
   createEffect(
     on(
       () => props.src,
-      () => setState("loading"),
+      () => {
+        setUseFallback(false);
+        setState("loading");
+      },
       { defer: true },
     ),
   );
@@ -44,7 +53,7 @@ export default function LazyImage(props: LazyImageProps) {
   return (
     <span class={wrapperClass()}>
       <img
-        src={props.src}
+        src={src()}
         alt={props.alt}
         loading="lazy"
         decoding="async"
@@ -61,6 +70,14 @@ export default function LazyImage(props: LazyImageProps) {
         }
         onLoad={() => setState("loaded")}
         onError={(e) => {
+          if (
+            !useFallback() &&
+            props.fallbackSrc &&
+            props.fallbackSrc !== props.src
+          ) {
+            setUseFallback(true);
+            return;
+          }
           setState("error");
           props.onError?.(e);
         }}

@@ -14,6 +14,8 @@ import {
 } from "applesauce-common/helpers";
 import mime from "mime";
 import { transformBlossomUrl } from "../../services/BlossomService";
+import { resolveMediaItem } from "../../services/MediaService";
+import { lightboxClickHandler } from "../Lightbox";
 
 interface FileMetadataCardProps {
   fileMetadata: NostrEvent;
@@ -114,6 +116,24 @@ export default function FileMetadataCard(props: FileMetadataCardProps) {
                     url={displayUrl}
                     alt={metadata.alt || props.fileMetadata.content}
                     dimensions={metadata.dimensions}
+                    onOpen={lightboxClickHandler(
+                      () => {
+                        const item = resolveMediaItem(
+                          displayUrl,
+                          metadata,
+                          props.fileMetadata.pubkey,
+                        );
+                        return item
+                          ? [
+                              {
+                                ...item,
+                                alt: item.alt || props.fileMetadata.content,
+                              },
+                            ]
+                          : [];
+                      },
+                      () => 0,
+                    )}
                   />
                 ) : isVideo ? (
                   <VideoPreview

@@ -6,12 +6,20 @@ interface ImagePreviewProps {
   alt?: string;
   dimensions?: string;
   proxied?: boolean;
+  /** Called on a plain click (e.g. to open the lightbox) instead of following the link */
+  onOpen?: (e: MouseEvent) => void;
 }
 
 export default function ImagePreview(props: ImagePreviewProps) {
   return (
     <div class="relative inline-block">
-      <a href={props.url} target="_blank" rel="noopener noreferrer">
+      <a
+        href={props.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        class={props.onOpen ? "cursor-zoom-in" : undefined}
+        onClick={(e) => props.onOpen?.(e)}
+      >
         <LazyImage
           src={props.url}
           alt={props.alt || "Image preview"}

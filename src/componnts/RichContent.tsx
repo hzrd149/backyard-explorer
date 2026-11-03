@@ -11,14 +11,22 @@ import {
   isVideoURL,
   getPubkeyFromDecodeResult,
 } from "applesauce-core/helpers";
+import type { FileMetadataFields } from "applesauce-common/helpers";
 import {
   isBud01Url,
   transformBlossomUrl,
   isBlossomProxiedUrl,
 } from "../services/BlossomService.ts";
+import {
+  findAttachmentForUrl,
+  resolveMediaItem,
+  type MediaItem,
+} from "../services/MediaService.ts";
 import { ImagePreview, VideoPreview } from "./previews/index.ts";
 import UserName from "./UserName.tsx";
 import LazyImage from "./previews/LazyImage.tsx";
+import ProxiedBadge from "./previews/ProxiedBadge.tsx";
+import { lightboxClickHandler } from "./Lightbox.tsx";
 
 /**
  * Resolve the display URL — applies the Blossom proxy when the URL is a
@@ -35,34 +43,57 @@ interface RichContentProps {
   content: string;
   /** Author pubkey — forwarded to the Blossom proxy as the `as` parameter */
   pubkey?: string;
+  /** NIP-92 imeta attachments from the event, used for thumbnails and alt text */
+  attachments?: FileMetadataFields[];
 }
 
-function renderNode(node: Content, pubkey: string | undefined) {
+function renderNode(node: Content, props: RichContentProps) {
+  const { pubkey, attachments } = props;
+  const media = (url: string): MediaItem =>
+    resolveMediaItem(url, findAttachmentForUrl(attachments, url), pubkey) ?? {
+      url: resolveUrl(url, pubkey),
+      proxied: isBlossomProxiedUrl(resolveUrl(url, pubkey)),
+    };
+
   switch (node.type) {
     case "text":
       return <span style="white-space: pre-wrap">{node.value}</span>;
 
     case "link": {
       const raw = node.href;
-      const resolved = resolveUrl(raw, pubkey);
-      const proxied = isBlossomProxiedUrl(resolved);
 
       if (isImageURL(raw)) {
+        const item = media(raw);
         return (
           <div class="mt-2">
-            <ImagePreview url={resolved} proxied={proxied} />
+            <ImagePreview
+              url={item.url}
+              alt={item.alt}
+              proxied={item.proxied}
+              onOpen={lightboxClickHandler(
+                () => [item],
+                () => 0,
+              )}
+            />
           </div>
         );
       }
 
       if (isVideoURL(raw)) {
+        const item = media(raw);
         return (
           <div class="mt-2">
-            <VideoPreview url={resolved} proxied={proxied} />
+            <VideoPreview
+              url={item.url}
+              thumbnail={item.thumbnail}
+              alt={item.alt}
+              proxied={item.proxied}
+            />
           </div>
         );
       }
 
+      const resolved = resolveUrl(raw, pubkey);
       return (
         <a
           href={resolved}
@@ -76,18 +107,23 @@ function renderNode(node: Content, pubkey: string | undefined) {
     }
 
     case "gallery": {
-      const resolvedLinks = node.links.map((url) => ({
-        url: resolveUrl(url, pubkey),
-        proxied: isBlossomProxiedUrl(resolveUrl(url, pubkey)),
-      }));
+      const items = node.links.map(media);
       return (
         <div class="mt-2 flex gap-2 overflow-x-auto pb-1 snap-x snap-mandatory">
-          <For each={resolvedLinks}>
-            {(item) => (
+          <For each={items}>
+            {(item, index) => (
               <div class="flex-none snap-start relative">
-                <a href={item.url} target="_blank" rel="noopener noreferrer">
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="cursor-zoom-in"
+                  onClick={lightboxClickHandler(() => items, index)}
+                >
                   <LazyImage
-                    src={item.url}
+                    src={item.thumbnail ?? item.url}
+                    fallbackSrc={item.url}
+                    alt={item.alt}
                     class="h-48 w-auto min-w-48 rounded-lg object-cover"
                     placeholderClass="h-48"
                     onError={(e) => {
@@ -98,23 +134,7 @@ function renderNode(node: Content, pubkey: string | undefined) {
                   />
                 </a>
                 <Show when={item.proxied}>
-                  <div
-                    class="absolute top-1.5 right-1.5 bg-success text-success-content rounded-full p-0.5 shadow"
-                    title="Served via local Blossom proxy"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="h-3.5 w-3.5"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path
-                        fill-rule="evenodd"
-                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                        clip-rule="evenodd"
-                      />
-                    </svg>
-                  </div>
+                  <ProxiedBadge />
                 </Show>
               </div>
             )}
@@ -158,9 +178,7 @@ export default function RichContent(props: RichContentProps) {
 
   return (
     <div class="prose prose-sm max-w-none break-words">
-      <For each={parsed().children}>
-        {(node) => renderNode(node, props.pubkey)}
-      </For>
+      <For each={parsed().children}>{(node) => renderNode(node, props)}</For>
     </div>
   );
 }
