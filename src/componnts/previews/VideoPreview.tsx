@@ -23,7 +23,7 @@ export default function VideoPreview(props: VideoPreviewProps) {
         src={visible() ? props.url : undefined}
         controls
         preload={visible() ? "metadata" : "none"}
-        class="w-full max-h-[80vh] object-cover rounded-lg"
+        class="w-full max-h-[80vh] object-contain bg-black rounded-lg"
         classList={{ "aspect-video skeleton": !ready() }}
         onLoadedMetadata={() => setReady(true)}
         poster={visible() ? props.thumbnail || props.previewImage : undefined}

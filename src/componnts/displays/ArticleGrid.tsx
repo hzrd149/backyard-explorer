@@ -89,7 +89,7 @@ export default function ArticleGrid(props: DisplayProps) {
         </For>
       </div>
 
-      <Show when={articles().length === 0}>
+      <Show when={props.complete && articles().length === 0}>
         <p class="text-center text-base-content/50 mt-8">
           No articles found in these results.
         </p>

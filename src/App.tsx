@@ -1,5 +1,13 @@
-import { createSignal, onMount, createEffect, createMemo } from "solid-js";
-import type { NostrEvent } from "nostr-tools";
+import {
+  createSignal,
+  onMount,
+  createEffect,
+  createMemo,
+  onCleanup,
+  on,
+  Show,
+  untrack,
+} from "solid-js";
 import type { ProfilePointer } from "nostr-tools/nip19";
 import SearchBar from "./componnts/SearchBar";
 import ResultsDisplay from "./componnts/displays/ResultsDisplay";
@@ -12,14 +20,15 @@ import {
   isSearchSupported,
   requiresSearch,
   requiresProfileLookup,
-  searchEvents,
+  searchFeed,
   searchProfiles,
 } from "./services/SearchService";
 import { useSearchQuery } from "./services/URLState";
 import { stripViewTokens } from "./services/DisplayService";
+import type { TimelineFeed } from "./services/TimelineFeed";
 
 function App() {
-  const [events, setEvents] = createSignal<NostrEvent[]>([]);
+  const [feed, setFeed] = createSignal<TimelineFeed | null>(null);
   const [profiles, setProfiles] = createSignal<ProfilePointer[]>([]);
   const [isLoading, setIsLoading] = createSignal(false);
   const [searchSupported, setSearchSupported] = createSignal<boolean | null>(
@@ -39,28 +48,39 @@ function App() {
   // The query without `view:` tokens — switching display modes must not re-fetch
   const fetchQuery = createMemo(() => stripViewTokens(query()));
 
-  // Automatically search when URL query changes
-  createEffect(async () => {
-    const currentQuery = fetchQuery();
-    if (currentQuery.trim()) {
-      await performSearch(currentQuery);
-    } else {
-      setEvents([]);
-      setProfiles([]);
-      setError(null);
-    }
-  });
+  // Stop the previous feed's loading whenever it is replaced. Read untracked so
+  // that callers inside effects don't re-run whenever the feed changes
+  const replaceFeed = (next: TimelineFeed | null) => {
+    untrack(feed)?.close();
+    setFeed(next);
+  };
+  onCleanup(() => untrack(feed)?.close());
+
+  // Each search gets an id so a slow earlier search can't overwrite a newer one
+  let searchId = 0;
+
+  // Automatically search when the URL query changes. `on` limits tracking to
+  // fetchQuery: performSearch reads and replaces the feed, and tracking that
+  // would start a new search every time a search finished
+  createEffect(
+    on(fetchQuery, (currentQuery) => {
+      if (currentQuery.trim()) {
+        performSearch(currentQuery);
+      } else {
+        searchId++;
+        replaceFeed(null);
+        setProfiles([]);
+        setError(null);
+        setIsLoading(false);
+      }
+    }),
+  );
 
   const performSearch = async (searchQuery: string) => {
-    if (!searchQuery.trim()) {
-      setEvents([]);
-      setProfiles([]);
-      return;
-    }
-
+    const id = ++searchId;
     setIsLoading(true);
     setError(null);
-    setEvents([]);
+    replaceFeed(null);
     setProfiles([]);
 
     try {
@@ -68,18 +88,19 @@ function App() {
       if (requiresProfileLookup(searchQuery)) {
         console.log("Performing profile lookup for:", searchQuery);
         const profileResults = await searchProfiles(searchQuery);
-        setProfiles(profileResults);
-        setIsLoading(false);
+        if (id === searchId) setProfiles(profileResults);
         return;
       }
 
-      // Regular event search
-      const events = await searchEvents(searchQuery);
-      setEvents(events);
-      setIsLoading(false);
+      // Regular event search: the feed loads pages as the results are scrolled
+      const next = await searchFeed(searchQuery);
+      if (id === searchId) replaceFeed(next);
+      else next.close();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Search failed");
-      setIsLoading(false);
+      if (id === searchId)
+        setError(err instanceof Error ? err.message : "Search failed");
+    } finally {
+      if (id === searchId) setIsLoading(false);
     }
   };
 
@@ -93,6 +114,23 @@ function App() {
     const currentQuery = query();
     return searchSupported() === false && requiresSearch(currentQuery);
   };
+
+  const noResults = () => (
+    <div class="text-center text-base-content/50 mt-8">
+      <p>
+        No results found. Try searching for events, filter by kind with{" "}
+        <code class="bg-base-300 px-2 py-1 rounded">kind:1</code> for notes,{" "}
+        <code class="bg-base-300 px-2 py-1 rounded">kind:20</code> for picture
+        posts, search by author with{" "}
+        <code class="bg-base-300 px-2 py-1 rounded">by:username</code>, filter
+        by date with{" "}
+        <code class="bg-base-300 px-2 py-1 rounded">since:yesterday</code> or{" "}
+        <code class="bg-base-300 px-2 py-1 rounded">after:2024-01-01</code>, or
+        lookup profiles with{" "}
+        <code class="bg-base-300 px-2 py-1 rounded">p:username</code>.
+      </p>
+    </div>
+  );
 
   return (
     <SearchProvider updateSearch={handleSearch}>
@@ -350,43 +388,24 @@ function App() {
                 </div>
               )}
 
-              {/* Show event results if we have any */}
-              {events().length > 0 && (
-                <ResultsDisplay events={events()} query={query()} />
-              )}
-
-              {/* Show no results message if we have neither profiles nor events */}
-              {profiles().length === 0 &&
-                events().length === 0 &&
-                !isLoading() &&
-                searchSupported() !== null && (
-                  <div class="text-center text-base-content/50 mt-8">
-                    <p>
-                      No results found. Try searching for events, filter by kind
-                      with{" "}
-                      <code class="bg-base-300 px-2 py-1 rounded">kind:1</code>{" "}
-                      for notes,{" "}
-                      <code class="bg-base-300 px-2 py-1 rounded">kind:20</code>{" "}
-                      for picture posts, search by author with{" "}
-                      <code class="bg-base-300 px-2 py-1 rounded">
-                        by:username
-                      </code>
-                      , filter by date with{" "}
-                      <code class="bg-base-300 px-2 py-1 rounded">
-                        since:yesterday
-                      </code>{" "}
-                      or{" "}
-                      <code class="bg-base-300 px-2 py-1 rounded">
-                        after:2024-01-01
-                      </code>
-                      , or lookup profiles with{" "}
-                      <code class="bg-base-300 px-2 py-1 rounded">
-                        p:username
-                      </code>
-                      .
-                    </p>
-                  </div>
+              {/* Event results, loaded page by page as they are scrolled */}
+              <Show when={feed()} keyed>
+                {(current) => (
+                  <ResultsDisplay
+                    feed={current}
+                    query={query()}
+                    empty={noResults()}
+                  />
                 )}
+              </Show>
+
+              {/* Show no results message if a lookup found nothing */}
+              {profiles().length === 0 &&
+                !feed() &&
+                !isLoading() &&
+                !error() &&
+                searchSupported() !== null &&
+                noResults()}
             </>
           )}
         </div>

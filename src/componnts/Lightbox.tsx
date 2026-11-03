@@ -66,6 +66,9 @@ export default function Lightbox() {
     if (!lightbox()) return;
 
     const onKey = (e: KeyboardEvent) => {
+      // Leave arrow keys to a focused video player, where they seek
+      const inPlayer = e.target instanceof HTMLMediaElement;
+      if (inPlayer && e.key !== "Escape") return;
       if (e.key === "Escape") closeLightbox();
       else if (e.key === "ArrowRight") step(1);
       else if (e.key === "ArrowLeft") step(-1);
@@ -86,6 +89,11 @@ export default function Lightbox() {
   // Basic horizontal swipe for touch screens
   let touchX: number | null = null;
   const onTouchStart = (e: TouchEvent) => {
+    // Dragging the video scrubber must not flip to the next item
+    if (e.target instanceof HTMLMediaElement) {
+      touchX = null;
+      return;
+    }
     touchX = e.touches.length === 1 ? e.touches[0].clientX : null;
   };
   const onTouchEnd = (e: TouchEvent) => {
@@ -205,13 +213,14 @@ export default function Lightbox() {
                   </>
                 }
               >
+                {/* Sized to fit inside the viewer at any aspect ratio, so the controls stay visible */}
                 <video
                   src={item().url}
                   poster={item().thumbnail}
                   controls
                   autoplay
                   playsinline
-                  class="max-h-full max-w-full object-contain"
+                  class="h-auto max-h-full w-auto max-w-full rounded bg-black object-contain shadow-2xl"
                 />
               </Show>
 

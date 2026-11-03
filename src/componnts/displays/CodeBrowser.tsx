@@ -59,7 +59,7 @@ export default function CodeBrowser(props: DisplayProps) {
           }}
         </For>
       </div>
-      <Show when={snippets().length === 0}>
+      <Show when={props.complete && snippets().length === 0}>
         <p class="text-center text-base-content/50 mt-8">
           No code snippets found in these results.
         </p>

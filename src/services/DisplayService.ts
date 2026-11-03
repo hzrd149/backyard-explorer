@@ -1,4 +1,7 @@
-import type { ParsedQuery } from "./QueryParser";
+import type { QueryPlan } from "./QueryPlanner";
+
+/** The parts of a query plan that pick a display mode */
+export type DisplayQuery = Pick<QueryPlan, "kinds" | "mimeTypes" | "view">;
 
 /** Ways a set of search results can be rendered. Never affects the filter. */
 export type DisplayMode =
@@ -11,6 +14,11 @@ export type DisplayMode =
   | "highlights"
   | "code"
   | "profiles"
+  | "threads"
+  | "calendar"
+  | "market"
+  | "map"
+  | "stats"
   | "raw";
 
 export interface DisplayModeInfo {
@@ -20,10 +28,21 @@ export interface DisplayModeInfo {
   aliases: string[];
   /** Event kinds that select this mode by default when they make up the whole query */
   kinds?: number[];
+  /**
+   * The view's page doesn't grow with its results (a map, a summary), so the end of the
+   * list never scrolls away. It loads a bounded batch at a time instead of scrolling.
+   */
+  bounded?: boolean;
 }
 
 export const IMAGE_KINDS = [20];
 export const VIDEO_KINDS = [21, 22, 34235, 34236];
+/** Forum threads, comments, chat, live chat, public messages and channel messages */
+export const THREAD_KINDS = [11, 1111, 9, 1311, 24, 42];
+/** Calendar events (NIP-52) and live events, rooms and conferences (NIP-53) */
+export const CALENDAR_KINDS = [31922, 31923, 30311, 30312, 30313];
+/** Classified listings (NIP-99) and marketplace products (NIP-15) */
+export const MARKET_KINDS = [30402, 30403, 30018];
 
 export const DISPLAY_MODES: DisplayModeInfo[] = [
   { id: "timeline", label: "Timeline", icon: "📰", aliases: ["notes", "feed"] },
@@ -77,6 +96,42 @@ export const DISPLAY_MODES: DisplayModeInfo[] = [
     aliases: ["people", "directory", "profile"],
     kinds: [0],
   },
+  {
+    id: "threads",
+    label: "Threads",
+    icon: "💬",
+    aliases: ["thread", "conversations", "discussion", "chat"],
+    kinds: THREAD_KINDS,
+  },
+  {
+    id: "calendar",
+    label: "Calendar",
+    icon: "📅",
+    aliases: ["agenda", "schedule"],
+    kinds: CALENDAR_KINDS,
+  },
+  {
+    id: "market",
+    label: "Market",
+    icon: "🛒",
+    aliases: ["shop", "listings", "classifieds"],
+    kinds: MARKET_KINDS,
+  },
+  {
+    id: "map",
+    label: "Map",
+    icon: "🗺️",
+    aliases: ["geo", "places"],
+    kinds: [37516, 7516],
+    bounded: true,
+  },
+  {
+    id: "stats",
+    label: "Stats",
+    icon: "📊",
+    aliases: ["insights", "analytics", "summary"],
+    bounded: true,
+  },
   { id: "raw", label: "Raw", icon: "🧾", aliases: ["json", "inspector"] },
 ];
 
@@ -93,7 +148,7 @@ export function getDisplayModeInfo(mode: DisplayMode): DisplayModeInfo {
 }
 
 /** Pick the default display mode for a query from its kinds and MIME types */
-export function defaultDisplayMode(parsed: ParsedQuery): DisplayMode {
+export function defaultDisplayMode(parsed: DisplayQuery): DisplayMode {
   const kinds = parsed.kinds;
 
   if (kinds.length > 0) {
@@ -135,7 +190,7 @@ export interface ResolvedDisplayMode {
 }
 
 /** An explicit `view:` wins, otherwise fall back to the query's default */
-export function resolveDisplayMode(parsed: ParsedQuery): ResolvedDisplayMode {
+export function resolveDisplayMode(parsed: DisplayQuery): ResolvedDisplayMode {
   const explicit = normalizeDisplayMode(parsed.view);
   if (explicit) return { mode: explicit, explicit: true };
   return {

@@ -83,7 +83,7 @@ export default function ProfileDirectory(props: DisplayProps) {
           }}
         </For>
       </div>
-      <Show when={profiles().length === 0}>
+      <Show when={props.complete && profiles().length === 0}>
         <p class="text-center text-base-content/50 mt-8">
           No profiles found in these results.
         </p>

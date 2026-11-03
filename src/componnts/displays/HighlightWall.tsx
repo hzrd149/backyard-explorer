@@ -87,7 +87,7 @@ export default function HighlightWall(props: DisplayProps) {
           }}
         </For>
       </div>
-      <Show when={highlights().length === 0}>
+      <Show when={props.complete && highlights().length === 0}>
         <p class="text-center text-base-content/50 mt-8">
           No highlights found in these results.
         </p>

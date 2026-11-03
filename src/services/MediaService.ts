@@ -136,7 +136,22 @@ const URL_REGEX = /https?:\/\/[^\s<>"']+/g;
  * Extract every displayable image and video from an event: picture posts,
  * NIP-94 file metadata, NIP-71 videos, and imeta tags / media URLs in content.
  */
+const extracted = new WeakMap<NostrEvent, EventMediaItem[]>();
+
+/**
+ * Cached per event, so infinitely scrolling galleries get the same item
+ * objects back and only render tiles for newly loaded events
+ */
 export function extractEventMedia(event: NostrEvent): EventMediaItem[] {
+  let items = extracted.get(event);
+  if (!items) {
+    items = extractMedia(event);
+    extracted.set(event, items);
+  }
+  return items;
+}
+
+function extractMedia(event: NostrEvent): EventMediaItem[] {
   let items: MediaItem[] = [];
 
   if (event.kind === 20) {

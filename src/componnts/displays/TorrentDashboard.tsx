@@ -29,7 +29,19 @@ interface TorrentRow {
 
 type SortKey = "title" | "size" | "files" | "date";
 
+const rowCache = new WeakMap<NostrEvent, TorrentRow>();
+
+/** Cached per event so loading more torrents doesn't rebuild existing rows */
 function toRow(event: NostrEvent): TorrentRow {
+  let row = rowCache.get(event);
+  if (!row) {
+    row = buildRow(event);
+    rowCache.set(event, row);
+  }
+  return row;
+}
+
+function buildRow(event: NostrEvent): TorrentRow {
   const files = getTorrentFiles(event);
   return {
     event,
@@ -243,7 +255,7 @@ export default function TorrentDashboard(props: DisplayProps) {
         </table>
       </div>
 
-      <Show when={rows().length === 0}>
+      <Show when={props.complete && rows().length === 0}>
         <p class="text-center text-base-content/50">
           No torrents found in these results.
         </p>

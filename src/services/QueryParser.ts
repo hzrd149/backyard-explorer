@@ -1,677 +1,424 @@
-import type { Filter } from "nostr-tools";
-import mime from "mime";
-import { normalizeToPubkey } from "applesauce-core/helpers";
-import { parseDate } from "chrono-node";
-
-export interface ParsedQuery {
-  searchText: string;
-  kinds: number[];
-  authors: string[];
-  tags: Record<string, string[]>;
-  profiles: string[];
-  usernames: string[]; // Usernames that need to be resolved via lookup providers
-  hashtags: string[]; // New field for hashtags
-  profileLookup: string[]; // New field for p:<name> profile lookups
-  mimeTypes: string[]; // New field for m:<ext/mime> MIME type searches (uses #m filter)
-  view?: string; // view:<mode> display mode — only affects rendering, never the filter
-  since?: number;
-  until?: number;
-  limit?: number;
-}
-
-// Mapping of common event kind names to their numbers
-const EVENT_KIND_MAP: Record<string, number | number[]> = {
-  // Basic kinds
-  note: 1,
-  article: 30023,
-  profile: 0,
-  contacts: 3,
-
-  // Common event kinds from NIPs
-  metadata: 0,
-  text: 1,
-  recommend_relay: 2,
-  follow: 3,
-  follows: 3,
-  encrypted_dm: 4,
-  deletion: 5,
-  delete: 5,
-  repost: 6,
-  share: 6,
-  reaction: 7,
-  badge_award: 8,
-  chat_message: 9,
-  group_chat_reply: 10,
-  thread: 11,
-  group_thread_reply: 12,
-  seal: 13,
-  direct_message: 14,
-  file_message: 15,
-  generic_repost: 16,
-  website_reaction: 17,
-  picture: 20,
-  image: 20,
-  images: 20,
-  video: [21, 22, 34235, 34236],
-  videos: [21, 22, 34235, 34236],
-  media: [20, 21, 22, 34235, 34236],
-  short_video: 22,
-  addressable_video: 34235,
-  addressable_short_video: 34236,
-
-  // Other common kinds
-  request_vanish: 62,
-  chess: 64,
-  poll_response: 1018,
-  bid: 1021,
-  bid_confirmation: 1022,
-  opentimestamp: 1040,
-  gift_wrap: 1059,
-  file: 1063,
-  poll: 1068,
-  comment: 1111,
-  voice_message: 1222,
-  voice_comment: 1244,
-  live_chat: 1311,
-  code: 1337,
-  snippet: 1337,
-  patch: 1617,
-  issue: 1618,
-  git_reply: 1622,
-  status: 1630,
-  problem_tracker: 1971,
-  report: 1984,
-  label: 1985,
-  relay_review: 1986,
-  ai_embeddings: 1987,
-  torrent: 2003,
-  torrent_comment: 2004,
-  coinjoin_pool: 2022,
-  cashu_reserved: 7374,
-  cashu_tokens: 7375,
-  cashu_history: 7376,
-  geocache_log: 7516,
-  geocache_proof: 7517,
-  group_control: 9000,
-  goal: 9041,
-  nutzap: 9321,
-  tidal_login: 9467,
-  zap_request: 9734,
-  zap: 9735,
-  highlight: 9802,
-
-  // List kinds
-  mutes: 10000,
-  mute: 10000,
-  pins: 10001,
-  pin: 10001,
-  relays: 10002,
-  bookmarks: 10003,
-  communities: 10004,
-  public_chats: 10005,
-  blocked_relays: 10006,
-  search_relays: 10007,
-  user_groups: 10009,
-  favorite_relays: 10012,
-  interests: 10015,
-  nutzap_mint_recommendation: 10019,
-  media_follows: 10020,
-  user_emojis: 10030,
-  dm_relays: 10050,
-  keypackage_relays: 10051,
-  user_server_list: 10063,
-  relay_monitor: 10166,
-  room_presence: 10312,
-  proxy_announcement: 10377,
-  transport_method: 11111,
-  wallet_info: 13194,
-  cashu_wallet: 17375,
-
-  // Set kinds
-  follow_set: 30000,
-  generic_list: 30001,
-  relay_set: 30002,
-  bookmark_set: 30003,
-  curation_set: 30004,
-  video_set: 30005,
-  kind_mute_set: 30007,
-  profile_badge: 30008,
-  badge_definition: 30009,
-  interest_set: 30015,
-  stall: 30017,
-  product: 30018,
-  marketplace: 30019,
-  auction: 30020,
-  longform: 30023,
-  emoji: 30030,
-  curated_publication_index: 30040,
-  curated_publication_content: 30041,
-  release_artifact_set: 30063,
-  app_data: 30078,
-  relay_discovery: 30166,
-  app_curation_set: 30267,
-  live_event: 30311,
-  interactive_room: 30312,
-  conference_event: 30313,
-  user_status: 30315,
-  slide_set: 30388,
-  classified_listing: 30402,
-  draft_classified_listing: 30403,
-  repository_announcement: 30617,
-  repository_state: 30618,
-  wiki_article: 30818,
-  redirect: 30819,
-  draft_event: 31234,
-  link_set: 31388,
-  feed: 31890,
-  date_calendar_event: 31922,
-  time_calendar_event: 31923,
-  calendar: 31924,
-  calendar_rsvp: 31925,
-  handler_recommendation: 31989,
-  handler_information: 31990,
-  software_application: 32267,
-  community_definition: 34550,
-  cashu_mint: 38172,
-  fedimint: 38173,
-  geocache_listing: 37516,
-  p2p_order: 38383,
-  group_metadata: 39000,
-  starter_pack: 39089,
-  media_starter_pack: 39092,
-  web_bookmark: 39701,
-};
-
-// Helper function to detect NIP-19 identifiers (npub, nprofile)
-function isNIP19Identifier(str: string): boolean {
-  return str.startsWith("npub1") || str.startsWith("nprofile1");
-}
-
-// Helper function to convert NIP-19 identifier to hex pubkey
-function convertNIP19ToPubkey(nip19Str: string): string {
-  // In v5, normalizeToPubkey returns null instead of throwing on invalid input
-  const result = normalizeToPubkey(nip19Str);
-  if (result === null) {
-    // If conversion fails, return the original string
-    // This allows the system to fall back to username resolution
-    console.warn(`Failed to convert NIP-19 identifier "${nip19Str}"`);
-    return nip19Str;
-  }
-  return result;
-}
-
 /**
- * Parse a date string into a unix timestamp
+ * Query language lexer and parser.
  *
- * Supports:
- * - Unix timestamps (numeric values): 1234567890
- * - ISO date strings: 2024-01-01, 2024-01-01T12:00:00Z
- * - Human-readable dates: yesterday, last monday, 2 days ago, last week
+ * The syntax follows the Ants query grammar (ants-android `grammar/AntsQuery.g4`):
  *
- * @param dateStr - The date string to parse
- * @returns Unix timestamp in seconds, or undefined if parsing fails
+ *   query       := expression EOF
+ *   expression  := conjunction (OR conjunction)*
+ *   conjunction := primary (AND? primary)*          -- a space means AND
+ *   primary     := field ":(" expression ")"        -- scoped field, by:(alice OR bob)
+ *                | field ":" value                  -- kind:1, by:"Derek Ross"
+ *                | "(" expression ")"
+ *                | "\"phrase\""
+ *                | term
+ *
+ * AND binds tighter than OR, operators are case-insensitive whole words and
+ * `NOT` is reserved. Inside quotes only `\"` and `\\` are valid escapes.
+ *
+ * This module only builds the syntax tree; `QueryPlanner` turns it into filters.
  */
-function parseDateToTimestamp(dateStr: string): number | undefined {
-  // Remove quotes if present (from tokenizer)
-  const cleanStr = dateStr.replace(/^["']|["']$/g, "").trim();
 
-  if (!cleanStr) {
-    return undefined;
+export const MAX_QUERY_LENGTH = 2000;
+export const MAX_GROUP_DEPTH = 16;
+export const MAX_QUERY_NODES = 256;
+
+/** A query that can't be parsed or planned. `position` is a UTF-16 index into the query */
+export class QueryError extends Error {
+  readonly position?: number;
+  readonly length?: number;
+
+  constructor(message: string, position?: number, length?: number) {
+    super(message);
+    this.name = "QueryError";
+    this.position = position;
+    this.length = length;
   }
-
-  // Try parsing as a direct unix timestamp (numeric value)
-  const numericValue = parseInt(cleanStr, 10);
-  if (!isNaN(numericValue) && cleanStr === numericValue.toString()) {
-    // If it's a pure number and matches the string, treat it as unix timestamp
-    return numericValue;
-  }
-
-  try {
-    // Try parsing as ISO date or natural language using chrono-node
-    const parsedDate = parseDate(cleanStr);
-
-    if (parsedDate) {
-      // Convert to unix timestamp (seconds)
-      return Math.floor(parsedDate.getTime() / 1000);
-    }
-  } catch (error) {
-    console.error(`Error parsing date "${dateStr}":`, error);
-  }
-
-  // If all parsing attempts fail, return undefined
-  console.warn(`Failed to parse date: "${dateStr}"`);
-  return undefined;
 }
 
-// Helper function to tokenize query string
-function tokenize(query: string): string[] {
-  const tokens: string[] = [];
-  let current = "";
-  let inQuotes = false;
-  let quoteChar = "";
+export interface TermNode {
+  type: "term";
+  text: string;
+  quoted: boolean;
+  start: number;
+  end: number;
+}
 
-  for (let i = 0; i < query.length; i++) {
+export interface FieldNode {
+  type: "field";
+  /** Lowercased field name, without the colon */
+  field: string;
+  value: string;
+  quoted: boolean;
+  start: number;
+  end: number;
+}
+
+export interface GroupNode {
+  type: "and" | "or";
+  children: QueryNode[];
+}
+
+export type QueryLeaf = TermNode | FieldNode;
+export type QueryNode = QueryLeaf | GroupNode;
+
+type TokenType = "word" | "string" | "lparen" | "rparen";
+
+interface Token {
+  type: TokenType;
+  /** Raw text for words, unescaped contents for strings */
+  value: string;
+  start: number;
+  end: number;
+}
+
+const WHITESPACE = /\s/;
+const WORD_BREAK = /[\s()"\\]/;
+const FIELD_NAME = /^[a-z][a-z0-9_-]*$/i;
+
+function tokenize(query: string): Token[] {
+  const tokens: Token[] = [];
+  let i = 0;
+
+  while (i < query.length) {
     const char = query[i];
 
-    if ((char === '"' || char === "'") && !inQuotes) {
-      inQuotes = true;
-      quoteChar = char;
-    } else if (char === quoteChar && inQuotes) {
-      inQuotes = false;
-      quoteChar = "";
-    } else if (char === " " && !inQuotes) {
-      if (current.trim()) {
-        tokens.push(current.trim());
-        current = "";
+    if (WHITESPACE.test(char)) {
+      i++;
+    } else if (char === "(" || char === ")") {
+      tokens.push({
+        type: char === "(" ? "lparen" : "rparen",
+        value: char,
+        start: i,
+        end: i + 1,
+      });
+      i++;
+    } else if (char === '"') {
+      const start = i;
+      let value = "";
+      i++;
+      for (;;) {
+        if (i >= query.length) {
+          throw new QueryError("Unclosed quote", start, 1);
+        }
+        const c = query[i];
+        if (c === '"') {
+          i++;
+          break;
+        }
+        if (c === "\\") {
+          const next = query[i + 1];
+          if (next !== '"' && next !== "\\") {
+            throw new QueryError(
+              'Only \\" and \\\\ can be escaped inside quotes',
+              i,
+              2,
+            );
+          }
+          value += next;
+          i += 2;
+        } else if (c === "\r" || c === "\n") {
+          throw new QueryError("Unclosed quote", start, 1);
+        } else {
+          value += c;
+          i++;
+        }
       }
+      tokens.push({ type: "string", value, start, end: i });
+    } else if (char === "\\") {
+      throw new QueryError("Backslashes are only allowed inside quotes", i, 1);
     } else {
-      current += char;
+      const start = i;
+      while (i < query.length && !WORD_BREAK.test(query[i])) i++;
+      tokens.push({
+        type: "word",
+        value: query.slice(start, i),
+        start,
+        end: i,
+      });
     }
-  }
-
-  if (current.trim()) {
-    tokens.push(current.trim());
   }
 
   return tokens;
 }
 
-/**
- * Expand MIME type or file extension to actual MIME types
- *
- * Supports:
- * - File extensions: m:jpg, m:.png, m:pdf
- * - Full MIME types: m:image/jpeg, m:application/pdf
- * - Wildcard MIME types: m:image/, m:video/, m:audio/
- *
- * Wildcard types expand to common MIME types for that category.
- * For example, m:image/ expands to image/jpeg, image/png, image/gif, etc.
- */
-function expandMimeType(input: string): string[] {
-  const result: string[] = [];
-
-  // Remove leading dot if present (e.g., ".jpg" -> "jpg")
-  const cleanInput = input.startsWith(".") ? input.substring(1) : input;
-
-  // If it ends with "/", treat as wildcard MIME type (e.g., "image/" -> all image/* types)
-  if (cleanInput.endsWith("/")) {
-    const prefix = cleanInput.slice(0, -1); // Remove trailing slash
-
-    // Common MIME type prefixes and their expansions
-    const mimeTypeExpansions: Record<string, string[]> = {
-      image: [
-        "image/jpeg",
-        "image/jpg",
-        "image/png",
-        "image/gif",
-        "image/webp",
-        "image/svg+xml",
-        "image/bmp",
-        "image/tiff",
-        "image/ico",
-        "image/x-icon",
-      ],
-      video: [
-        "video/mp4",
-        "video/avi",
-        "video/mov",
-        "video/wmv",
-        "video/flv",
-        "video/webm",
-        "video/mkv",
-        "video/3gp",
-        "video/quicktime",
-      ],
-      audio: [
-        "audio/mp3",
-        "audio/mpeg",
-        "audio/wav",
-        "audio/flac",
-        "audio/aac",
-        "audio/ogg",
-        "audio/m4a",
-        "audio/wma",
-        "audio/opus",
-      ],
-      text: [
-        "text/plain",
-        "text/html",
-        "text/css",
-        "text/javascript",
-        "text/json",
-        "text/xml",
-        "text/csv",
-        "text/markdown",
-        "text/yaml",
-      ],
-      application: [
-        "application/pdf",
-        "application/zip",
-        "application/json",
-        "application/xml",
-        "application/javascript",
-        "application/octet-stream",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "application/vnd.ms-excel",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      ],
-    };
-
-    if (mimeTypeExpansions[prefix]) {
-      result.push(...mimeTypeExpansions[prefix]);
-    } else {
-      // If we don't have a predefined expansion, just add the prefix with wildcard
-      result.push(`${prefix}/*`);
-    }
-  } else {
-    // Check if it's already a MIME type (contains "/")
-    if (cleanInput.includes("/")) {
-      result.push(cleanInput);
-    } else {
-      // Treat as file extension and get MIME type
-      const mimeType = mime.getType(cleanInput);
-      if (mimeType) {
-        result.push(mimeType);
-      } else {
-        // If mime package doesn't recognize it, try common extensions
-        const commonExtensions: Record<string, string> = {
-          jpg: "image/jpeg",
-          jpeg: "image/jpeg",
-          png: "image/png",
-          gif: "image/gif",
-          webp: "image/webp",
-          svg: "image/svg+xml",
-          mp4: "video/mp4",
-          avi: "video/avi",
-          mov: "video/quicktime",
-          mp3: "audio/mpeg",
-          wav: "audio/wav",
-          pdf: "application/pdf",
-          zip: "application/zip",
-          txt: "text/plain",
-          html: "text/html",
-          css: "text/css",
-          js: "application/javascript",
-          json: "application/json",
-        };
-
-        if (commonExtensions[cleanInput.toLowerCase()]) {
-          result.push(commonExtensions[cleanInput.toLowerCase()]);
-        }
-      }
-    }
-  }
-
-  return result;
+function isOperator(token: Token | undefined, op: "OR" | "AND" | "NOT") {
+  return token?.type === "word" && token.value.toUpperCase() === op;
 }
 
-// Parse a query string into a structured query object
-export function parseQuery(query: string): ParsedQuery {
-  const result: ParsedQuery = {
-    searchText: "",
-    kinds: [],
-    authors: [],
-    tags: {},
-    profiles: [],
-    usernames: [],
-    hashtags: [],
-    profileLookup: [],
-    mimeTypes: [],
-  };
-
-  // Split query into parts, handling quoted strings
-  const parts = tokenize(query);
-
-  for (const part of parts) {
-    if (part.startsWith("kind:") || part.startsWith("k:")) {
-      const kindStr = part.split(":")[1];
-      const kind = parseInt(kindStr, 10);
-      if (!isNaN(kind)) {
-        result.kinds.push(kind);
-      }
-    } else if (part.startsWith("is:")) {
-      const typeStr = part.split(":")[1];
-      if (typeStr && typeStr in EVENT_KIND_MAP) {
-        const mapped = EVENT_KIND_MAP[typeStr];
-        for (const kind of Array.isArray(mapped) ? mapped : [mapped]) {
-          if (!result.kinds.includes(kind)) result.kinds.push(kind);
-        }
-      }
-    } else if (
-      part.startsWith("view:") ||
-      part.startsWith("display:") ||
-      part.startsWith("v:")
-    ) {
-      const view = part.split(":")[1];
-      if (view) {
-        result.view = view.toLowerCase();
-      }
-    } else if (part.startsWith("by:")) {
-      const username = part.split(":")[1];
-      if (username) {
-        // Check if it's a NIP-19 identifier (npub or nprofile)
-        if (isNIP19Identifier(username)) {
-          // Convert NIP-19 identifier to hex pubkey and add to authors
-          const hexPubkey = convertNIP19ToPubkey(username);
-          result.authors.push(hexPubkey);
-        } else {
-          // Regular username, add to usernames for resolution
-          result.usernames.push(username);
-        }
-      }
-    } else if (part.startsWith("p:")) {
-      const profileName = part.split(":")[1];
-      if (profileName) {
-        result.profileLookup.push(profileName);
-      }
-    } else if (part.startsWith("m:")) {
-      const mimeTypeOrExt = part.split(":")[1];
-      if (mimeTypeOrExt) {
-        const mimeTypes = expandMimeType(mimeTypeOrExt);
-        result.mimeTypes.push(...mimeTypes);
-      }
-    } else if (part.startsWith("author:") || part.startsWith("a:")) {
-      const author = part.split(":")[1];
-      if (author) {
-        result.authors.push(author);
-      }
-    } else if (part.startsWith("tag:") || part.startsWith("t:")) {
-      const tagPart = part.split(":")[1];
-      if (tagPart) {
-        const [tagName, tagValue] = tagPart.split("=");
-        if (tagName && tagValue) {
-          if (!result.tags[tagName]) {
-            result.tags[tagName] = [];
-          }
-          result.tags[tagName].push(tagValue);
-        }
-      }
-    } else if (part.startsWith("since:") || part.startsWith("after:")) {
-      const dateStr = part.split(":").slice(1).join(":"); // Handle colons in ISO dates
-      const timestamp = parseDateToTimestamp(dateStr);
-      if (timestamp !== undefined) {
-        result.since = timestamp;
-      }
-    } else if (part.startsWith("until:") || part.startsWith("before:")) {
-      const dateStr = part.split(":").slice(1).join(":"); // Handle colons in ISO dates
-      const timestamp = parseDateToTimestamp(dateStr);
-      if (timestamp !== undefined) {
-        result.until = timestamp;
-      }
-    } else if (part.startsWith("limit:")) {
-      const limitStr = part.split(":")[1];
-      const limit = parseInt(limitStr, 10);
-      if (!isNaN(limit)) {
-        result.limit = limit;
-      }
-    } else if (part.startsWith("#")) {
-      // Hashtag detection - extract hashtag and convert to lowercase
-      const hashtag = part.substring(1); // Remove the # symbol
-      if (hashtag && hashtag.trim()) {
-        result.hashtags.push(hashtag.toLowerCase().trim());
-      }
-    } else {
-      // Regular search text
-      result.searchText += (result.searchText ? " " : "") + part;
-    }
+/** Combine nodes into a group, flattening nested groups of the same type */
+function group(type: "and" | "or", nodes: QueryNode[]): QueryNode {
+  if (nodes.length === 1) return nodes[0];
+  const children: QueryNode[] = [];
+  for (const node of nodes) {
+    if (node.type === type) children.push(...node.children);
+    else children.push(node);
   }
-
-  return result;
+  return { type, children };
 }
 
-// Resolve usernames to pubkeys using the configured lookup providers
-export async function resolveUsernames(usernames: string[]): Promise<string[]> {
-  if (usernames.length === 0) {
-    return [];
+/** Split a `name:value` word, or return null if it isn't a field */
+function splitField(word: string): [string, string] | null {
+  const colon = word.indexOf(":");
+  if (colon <= 0) return null;
+  const name = word.slice(0, colon);
+  if (!FIELD_NAME.test(name)) return null;
+  return [name.toLowerCase(), word.slice(colon + 1)];
+}
+
+class Parser {
+  private pos = 0;
+  private nodes = 0;
+  private readonly tokens: Token[];
+  private readonly length: number;
+
+  constructor(tokens: Token[], length: number) {
+    this.tokens = tokens;
+    this.length = length;
   }
 
-  const { lookupProfiles } = await import("./LookupService");
-
-  const resolvedPubkeys: string[] = [];
-
-  // Resolve each username
-  for (const username of usernames) {
-    try {
-      const results = await lookupProfiles(username);
-      if (results && results.length > 0) {
-        // Take the first (best match) result
-        resolvedPubkeys.push(results[0].pubkey);
-      } else {
-        throw new Error(`No results found for username "${username}"`);
+  parse(): QueryNode {
+    const node = this.expression(0);
+    const extra = this.peek();
+    if (extra) {
+      if (extra.type === "rparen") {
+        throw new QueryError("Unmatched )", extra.start, 1);
       }
-    } catch (error) {
-      throw new Error(
-        `Failed to resolve username "${username}": ${error instanceof Error ? error.message : "Unknown error"}`,
+      throw new QueryError(`Unexpected "${extra.value}"`, extra.start);
+    }
+    return node;
+  }
+
+  private peek(offset = 0): Token | undefined {
+    return this.tokens[this.pos + offset];
+  }
+
+  private next(): Token {
+    return this.tokens[this.pos++];
+  }
+
+  private count() {
+    if (++this.nodes > MAX_QUERY_NODES) {
+      throw new QueryError(
+        `Queries are limited to ${MAX_QUERY_NODES} terms and groups`,
       );
     }
   }
 
-  return resolvedPubkeys;
-}
-
-// Convert parsed query to Nostr filters with username resolution
-export async function queryToFiltersWithResolution(
-  parsedQuery: ParsedQuery,
-): Promise<Filter[]> {
-  // Resolve usernames to pubkeys using lookup providers - this will throw if resolution fails
-  const resolvedPubkeys = await resolveUsernames(parsedQuery.usernames);
-
-  // Create a new parsed query with resolved pubkeys added to authors
-  const resolvedQuery: ParsedQuery = {
-    ...parsedQuery,
-    authors: [...parsedQuery.authors, ...resolvedPubkeys],
-    usernames: [], // Clear usernames since they're now resolved
-  };
-
-  return queryToFilters(resolvedQuery);
-}
-
-// Convert parsed query to Nostr filters
-export function queryToFilters(parsedQuery: ParsedQuery): Filter[] {
-  const filters: Filter[] = [];
-
-  const baseFilter: Filter = {
-    limit: 500,
-  };
-
-  if (parsedQuery.kinds.length > 0) {
-    // Only add kinds filter if specific kinds are specified
-    baseFilter.kinds = parsedQuery.kinds;
-  }
-
-  // Add search text if present and not empty
-  if (parsedQuery.searchText && parsedQuery.searchText.trim()) {
-    baseFilter.search = parsedQuery.searchText.trim();
-  }
-
-  // Add authors if specified and not empty
-  if (parsedQuery.authors && parsedQuery.authors.length > 0) {
-    // Filter out empty or invalid authors
-    const validAuthors = parsedQuery.authors.filter(
-      (author) => author && author.trim(),
+  /** True when the next token can't begin a primary */
+  private atBoundary(): boolean {
+    const token = this.peek();
+    return (
+      !token ||
+      token.type === "rparen" ||
+      isOperator(token, "OR") ||
+      isOperator(token, "AND")
     );
-    if (validAuthors.length > 0) {
-      baseFilter.authors = validAuthors;
+  }
+
+  private expectOperand(operator: Token) {
+    if (this.atBoundary()) {
+      throw new QueryError(
+        `Expected a search term after ${operator.value.toUpperCase()}`,
+        operator.start,
+        operator.end - operator.start,
+      );
     }
   }
 
-  // Add tags if specified and not empty
-  if (parsedQuery.tags) {
-    Object.entries(parsedQuery.tags).forEach(([tagName, tagValues]) => {
-      if (tagValues && Array.isArray(tagValues) && tagValues.length > 0) {
-        // Filter out empty or invalid tag values
-        const validTagValues = tagValues.filter(
-          (value) => value && value.trim(),
+  private expression(depth: number): QueryNode {
+    const branches = [this.conjunction(depth)];
+    while (isOperator(this.peek(), "OR")) {
+      const op = this.next();
+      this.expectOperand(op);
+      branches.push(this.conjunction(depth));
+    }
+    if (branches.length > 1) this.count();
+    return group("or", branches);
+  }
+
+  private conjunction(depth: number): QueryNode {
+    const terms = [this.primary(depth)];
+    for (;;) {
+      const token = this.peek();
+      if (!token || token.type === "rparen" || isOperator(token, "OR")) break;
+      if (isOperator(token, "AND")) {
+        const op = this.next();
+        this.expectOperand(op);
+      }
+      terms.push(this.primary(depth));
+    }
+    if (terms.length > 1) this.count();
+    return group("and", terms);
+  }
+
+  private primary(depth: number): QueryNode {
+    const token = this.peek();
+
+    if (!token) {
+      throw new QueryError("Expected a search term", this.length);
+    }
+    if (isOperator(token, "NOT")) {
+      throw new QueryError(
+        "NOT isn't supported yet",
+        token.start,
+        token.end - token.start,
+      );
+    }
+    if (isOperator(token, "OR") || isOperator(token, "AND")) {
+      throw new QueryError(
+        `${token.value.toUpperCase()} needs a search term on both sides`,
+        token.start,
+        token.end - token.start,
+      );
+    }
+    if (token.type === "rparen") {
+      throw new QueryError("Unmatched )", token.start, 1);
+    }
+
+    if (token.type === "lparen") {
+      this.next();
+      const inner = this.groupBody(token, depth);
+      return inner;
+    }
+
+    this.next();
+    this.count();
+
+    if (token.type === "string") {
+      return {
+        type: "term",
+        text: token.value,
+        quoted: true,
+        start: token.start,
+        end: token.end,
+      };
+    }
+
+    const field = splitField(token.value);
+    if (!field) {
+      return {
+        type: "term",
+        text: token.value,
+        quoted: false,
+        start: token.start,
+        end: token.end,
+      };
+    }
+
+    const [name, value] = field;
+    if (value) {
+      return {
+        type: "field",
+        field: name,
+        value,
+        quoted: false,
+        start: token.start,
+        end: token.end,
+      };
+    }
+
+    // `name:` must be directly followed by a quoted value or a scoped group
+    const following = this.peek();
+    const adjacent = following && following.start === token.end;
+
+    if (adjacent && following.type === "string") {
+      this.next();
+      if (!following.value) {
+        throw new QueryError(
+          `${name}: needs a value`,
+          token.start,
+          following.end - token.start,
         );
-        if (validTagValues.length > 0) {
-          baseFilter[`#${tagName}`] = validTagValues;
-        }
       }
-    });
-  }
-
-  // Add hashtags as #t tags if specified and not empty
-  if (parsedQuery.hashtags && parsedQuery.hashtags.length > 0) {
-    // Filter out empty or invalid hashtags
-    const validHashtags = parsedQuery.hashtags.filter(
-      (hashtag) => hashtag && hashtag.trim(),
-    );
-    if (validHashtags.length > 0) {
-      // Initialize #t array if it doesn't exist
-      if (!baseFilter["#t"]) {
-        baseFilter["#t"] = [];
-      }
-      // Add hashtags to the #t array
-      baseFilter["#t"].push(...validHashtags);
+      return {
+        type: "field",
+        field: name,
+        value: following.value,
+        quoted: true,
+        start: token.start,
+        end: following.end,
+      };
     }
-  }
 
-  // Add MIME types as #m tags if specified and not empty
-  if (parsedQuery.mimeTypes && parsedQuery.mimeTypes.length > 0) {
-    // Filter out empty or invalid MIME types
-    const validMimeTypes = parsedQuery.mimeTypes.filter(
-      (mimeType) => mimeType && mimeType.trim(),
-    );
-    if (validMimeTypes.length > 0) {
-      // Initialize #m array if it doesn't exist
-      if (!baseFilter["#m"]) {
-        baseFilter["#m"] = [];
-      }
-      // Add MIME types to the #m array
-      baseFilter["#m"].push(...validMimeTypes);
+    if (adjacent && following.type === "lparen") {
+      this.next();
+      const inner = this.groupBody(following, depth);
+      return this.scope(name, inner);
     }
+
+    throw new QueryError(
+      `${name}: needs a value`,
+      token.start,
+      token.end - token.start,
+    );
   }
 
-  // Add time filters (only if they are valid numbers)
-  if (
-    parsedQuery.since &&
-    typeof parsedQuery.since === "number" &&
-    parsedQuery.since > 0
-  ) {
-    baseFilter.since = parsedQuery.since;
-  }
-  if (
-    parsedQuery.until &&
-    typeof parsedQuery.until === "number" &&
-    parsedQuery.until > 0
-  ) {
-    baseFilter.until = parsedQuery.until;
-  }
-
-  // Add limit (only if it's a valid positive number)
-  if (
-    parsedQuery.limit &&
-    typeof parsedQuery.limit === "number" &&
-    parsedQuery.limit > 0
-  ) {
-    baseFilter.limit = parsedQuery.limit;
+  /** Parse the inside of a group whose "(" was just consumed */
+  private groupBody(open: Token, depth: number): QueryNode {
+    if (depth + 1 > MAX_GROUP_DEPTH) {
+      throw new QueryError(
+        `Groups can only be nested ${MAX_GROUP_DEPTH} deep`,
+        open.start,
+        1,
+      );
+    }
+    if (this.peek()?.type === "rparen") {
+      throw new QueryError("Empty parentheses", open.start, 2);
+    }
+    const inner = this.expression(depth + 1);
+    const close = this.peek();
+    if (close?.type !== "rparen") {
+      throw new QueryError("Missing )", open.start, 1);
+    }
+    this.next();
+    return inner;
   }
 
-  filters.push(baseFilter);
+  /** Push a scoped field name onto every term of `by:(alice OR bob)` */
+  private scope(field: string, node: QueryNode): QueryNode {
+    if (node.type === "field") {
+      throw new QueryError(
+        `${field}:(…) can only contain plain values`,
+        node.start,
+        node.end - node.start,
+      );
+    }
+    if (node.type === "term") {
+      return {
+        type: "field",
+        field,
+        value: node.text,
+        quoted: node.quoted,
+        start: node.start,
+        end: node.end,
+      };
+    }
+    return {
+      type: node.type,
+      children: node.children.map((child) => this.scope(field, child)),
+    };
+  }
+}
 
-  // Debug logging to help troubleshoot filter issues
-  console.log("Generated filter:", JSON.stringify(baseFilter, null, 2));
+/** Parse a query string into a syntax tree. Throws `QueryError` */
+export function parseQueryTree(query: string): QueryNode {
+  if (query.length > MAX_QUERY_LENGTH) {
+    throw new QueryError(
+      `Queries are limited to ${MAX_QUERY_LENGTH} characters`,
+      MAX_QUERY_LENGTH,
+    );
+  }
+  const tokens = tokenize(query);
+  if (tokens.length === 0) {
+    throw new QueryError("Enter something to search for", 0);
+  }
+  return new Parser(tokens, query.length).parse();
+}
 
-  return filters;
+/** Every leaf of a tree, in source order */
+export function queryLeaves(node: QueryNode): QueryLeaf[] {
+  if ("children" in node) {
+    return node.children.flatMap(queryLeaves);
+  }
+  return [node];
 }

@@ -72,8 +72,8 @@ export const searchExamples = [
   "m:mp4",
   "m:image/jpeg",
   "m:application/pdf",
-  "m:image/ m:video/",
-  "m:jpg m:png",
+  "m:image/ OR m:video/",
+  "m:jpg OR m:png",
 
   // Picture post examples (NIP-68)
   "is:picture",
@@ -94,6 +94,13 @@ export const searchExamples = [
   "is:note view:images",
   "is:highlight view:raw",
   "is:profile view:profiles",
+  "#bitcoin since:30d view:stats",
+  "is:zap view:stats",
+  "is:comment view:threads",
+  "is:time_calendar_event",
+  "is:classified_listing",
+  "is:geocache_listing",
+  "#nostr view:map",
 ] as const;
 
 // Examples that require login to work properly

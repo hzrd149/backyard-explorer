@@ -20,6 +20,7 @@ Use pnpm 9.15.6, as pinned in `package.json`; CI uses Node.js 22.
 - `pnpm build` runs TypeScript project checks and creates the production bundle in `dist/`.
 - `pnpm preview` serves the production bundle locally after a build.
 - `pnpm format` runs Prettier across the repository; review the diff for unrelated formatting changes.
+- `pnpm test` runs the Vitest suite in `tests/` (node environment, no browser).
 
 ## Coding Style & Naming Conventions
 
@@ -27,7 +28,7 @@ Use TypeScript with strict checking and SolidJS reactive primitives. Follow the 
 
 ## Testing Guidelines
 
-No automated test runner, test script, or coverage threshold is configured. `src/componnts/previews/FilePreviewTest.tsx` provides sample preview fixtures, rather than an automated test suite. Run `pnpm build` and manually verify affected search syntax, profile lookups, URL state, and media behavior using `pnpm dev`. For UI changes, check responsive layouts and loading/error states. Record verification steps in the pull request.
+`pnpm test` runs Vitest over `tests/`, which covers the query parser and planner (`src/services/QueryParser.ts`, `QueryPlanner.ts`): the shared Ants fixtures in `tests/fixtures/ants-queries.json`, every entry in `src/examples.ts`, and our own cases. Add a case there whenever query syntax changes, and keep tests outside `src/` so `tsc -b` doesn't need Vitest types. There is no coverage threshold, and UI components have no automated tests; `src/componnts/previews/FilePreviewTest.tsx` holds sample preview fixtures only. Run `pnpm test` and `pnpm build`, then manually verify affected search syntax, profile lookups, URL state, and media behavior using `pnpm dev`. For UI changes, check responsive layouts and loading/error states. Record verification steps in the pull request.
 
 ## Commit & Pull Request Guidelines
 
