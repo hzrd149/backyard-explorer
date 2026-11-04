@@ -13,9 +13,12 @@ const NOW = new Date(fixtures.now);
 const ANTS: PlanOptions = { now: NOW, defaultKinds: fixtures.defaultKinds };
 const OPTIONS: PlanOptions = { now: NOW };
 
-const PUBKEY = "3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d";
-const OTHER = "82341f882b6eabcd2ba7f1ef90aad961cf074af15b9ef44a09f9d2a8fbfbe6a2";
-const EVENT = "d3d74124ddfb5bdc61b8f18d17c3335bbb4f8c71182a35ee27314a49a4eb7b1d";
+const PUBKEY =
+  "3bf0c63fcb93463407af97a5e5ee64fa883d107ef9e558472c4eb9aaaefa459d";
+const OTHER =
+  "82341f882b6eabcd2ba7f1ef90aad961cf074af15b9ef44a09f9d2a8fbfbe6a2";
+const EVENT =
+  "d3d74124ddfb5bdc61b8f18d17c3335bbb4f8c71182a35ee27314a49a4eb7b1d";
 
 const filtersOf = (query: string, options = OPTIONS) =>
   planQuery(query, options).branches.map((b) => b.filter);
@@ -54,7 +57,9 @@ describe("Ants shared fixtures", () => {
       if ("authors" in fixture) {
         expect(
           plan.branches.map((b) =>
-            b.pending.filter((c) => c.target === "authors").map((c) => c.values),
+            b.pending
+              .filter((c) => c.target === "authors")
+              .map((c) => c.values),
           ),
         ).toEqual(fixture.authors);
       }
@@ -138,7 +143,10 @@ describe("fields", () => {
   it("collects view: without changing the filter", () => {
     const plan = planQuery("#photography view:Images", OPTIONS);
     expect(plan.view).toBe("images");
-    expect(plan.branches[0].filter).toEqual({ "#t": ["photography"], limit: 500 });
+    expect(plan.branches[0].filter).toEqual({
+      "#t": ["photography"],
+      limit: 500,
+    });
     expect(planQuery("view:raw", OPTIONS).branches).toEqual([]);
   });
 
@@ -173,9 +181,7 @@ describe("dates", () => {
 
   it("keeps unix timestamps, ISO times and natural language", () => {
     expect(filtersOf("since:1700000000")[0].since).toBe(1700000000);
-    expect(filtersOf("since:2024-01-01T12:00:00Z")[0].since).toBe(
-      1704110400,
-    );
+    expect(filtersOf("since:2024-01-01T12:00:00Z")[0].since).toBe(1704110400);
     expect(filtersOf('until:"last week"')[0].until).toBeLessThan(
       NOW.getTime() / 1000,
     );
@@ -190,7 +196,9 @@ describe("dates", () => {
 describe("identifiers", () => {
   it("looks up events by note, nevent and hex id", () => {
     expect(filtersOf(nip19.noteEncode(EVENT))[0].ids).toEqual([EVENT]);
-    expect(filtersOf(nip19.neventEncode({ id: EVENT }))[0].ids).toEqual([EVENT]);
+    expect(filtersOf(nip19.neventEncode({ id: EVENT }))[0].ids).toEqual([
+      EVENT,
+    ]);
     expect(filtersOf(EVENT)[0].ids).toEqual([EVENT]);
   });
 
@@ -245,7 +253,9 @@ describe("syntax", () => {
   });
 
   it("limits branch expansion", () => {
-    const many = Array.from({ length: 6 }, (_, i) => `(a${i} OR b${i})`).join(" ");
+    const many = Array.from({ length: 6 }, (_, i) => `(a${i} OR b${i})`).join(
+      " ",
+    );
     expectError(many);
   });
 });

@@ -1,4 +1,5 @@
 import { createSignal, createEffect, onCleanup } from "solid-js";
+import { routeToQuery } from "./DeepLinks";
 
 // URL state management utilities
 export class URLStateManager {
@@ -8,7 +9,20 @@ export class URLStateManager {
   private constructor() {
     // Listen for browser navigation events
     window.addEventListener("popstate", this.handlePopState.bind(this));
+    // Deep links like #/p/npub1… open as a ?q= search
+    window.addEventListener("hashchange", this.applyHashRoute);
+    this.applyHashRoute();
   }
+
+  private applyHashRoute = () => {
+    const query = routeToQuery(window.location.hash);
+    if (query === undefined) return;
+    const url = new URL(window.location.href);
+    url.hash = "";
+    url.searchParams.set("q", query);
+    window.history.replaceState({}, "", url.toString());
+    this.listeners.forEach((listener) => listener());
+  };
 
   static getInstance(): URLStateManager {
     if (!URLStateManager.instance) {

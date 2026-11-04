@@ -144,6 +144,14 @@ function fieldsHelp(now: Date): FieldHelp[] {
     { name: "e", detail: "events referencing an event id" },
     { name: "limit", detail: "most results to show, limit:50" },
     { name: "view", detail: "display mode, view:images", values: viewNames },
+    {
+      name: "sort",
+      detail: "result order, sort:old",
+      values: () => [
+        { label: "sort:new", insert: "sort:new", detail: "newest first" },
+        { label: "sort:old", insert: "sort:old", detail: "oldest first" },
+      ],
+    },
     { name: "p", detail: "look up profiles by name" },
   ];
 }
@@ -206,7 +214,7 @@ export function applySuggestion(
 // ---------------------------------------------------------------------------
 // Plan summaries
 
-const KIND_NAMES: Record<number, string> = {
+export const KIND_NAMES: Record<number, string> = {
   0: "profiles",
   1: "notes",
   3: "follow lists",
@@ -278,7 +286,7 @@ export function describePlan(plan: QueryPlan): string[] {
       `profiles named ${plan.profileLookup.map((p) => `“${p}”`).join(" or ")}`,
     ];
   }
-  return plan.branches.map((branch) =>
+  const lines = plan.branches.map((branch) =>
     describeFilter(
       branch.filter,
       branch.pending
@@ -286,6 +294,10 @@ export function describePlan(plan: QueryPlan): string[] {
         .flatMap((c) => c.values),
     ),
   );
+  if (plan.sort === "old" && lines.length > 0) {
+    lines[lines.length - 1] += " · oldest first";
+  }
+  return lines;
 }
 
 // ---------------------------------------------------------------------------

@@ -399,7 +399,10 @@ const MERGEABLE: LeafField[] = [
   "mime",
 ];
 
-const FIELD_ALIASES: Record<string, LeafField | "is" | "has" | "view"> = {
+const FIELD_ALIASES: Record<
+  string,
+  LeafField | "is" | "has" | "view" | "sort"
+> = {
   kind: "kind",
   k: "kind",
   is: "is",
@@ -422,12 +425,28 @@ const FIELD_ALIASES: Record<string, LeafField | "is" | "has" | "view"> = {
   view: "view",
   display: "view",
   v: "view",
+  sort: "sort",
+  order: "sort",
 };
 
 /** `scheme:` prefixes that are part of a link or identifier, not a field */
 const SCHEMES = ["nostr", "http", "https", "ws", "wss", "ftp"];
 
 const VIEW_FIELDS = ["view", "display", "v"];
+const SORT_FIELDS = ["sort", "order"];
+
+/** Result order: newest first (the default) or oldest first */
+export type SortOrder = "new" | "old";
+
+const SORT_VALUES: Record<string, SortOrder> = {
+  new: "new",
+  newest: "new",
+  latest: "new",
+  desc: "new",
+  old: "old",
+  oldest: "old",
+  asc: "old",
+};
 
 function error(leaf: { start: number; end: number }, message: string): never {
   throw new QueryError(message, leaf.start, leaf.end - leaf.start);
@@ -539,33 +558,45 @@ function normalizeLeaf(node: QueryLeaf): Leaf {
       }
       return leaf(node, "limit", [node.value]);
     case "view":
+    case "sort":
       // Removed before planning; reaching here means it's inside a scoped group
-      return error(node, "view: can't be used inside a group");
+      return error(node, `${node.field}: can't be used inside a group`);
     default:
       return leaf(node, field, [node.value]);
   }
 }
 
-/** Strip view: leaves, returning the remaining tree and the last view value */
-function extractView(node: QueryNode): {
-  node?: QueryNode;
+interface Options {
   view?: string;
-} {
+  sort?: SortOrder;
+}
+
+/**
+ * Strip view: and sort: leaves, returning the remaining tree and their last
+ * values. They change how results are shown or ordered, not what matches.
+ */
+function extractOptions(node: QueryNode): Options & { node?: QueryNode } {
   if (node.type === "field" && VIEW_FIELDS.includes(node.field)) {
     return { view: node.value.toLowerCase() };
   }
+  if (node.type === "field" && SORT_FIELDS.includes(node.field)) {
+    const sort = SORT_VALUES[node.value.toLowerCase()];
+    if (!sort) error(node, `Unknown sort:${node.value} (use new or old)`);
+    return { sort };
+  }
   if (node.type === "term" || node.type === "field") return { node };
 
-  let view: string | undefined;
+  const options: Options = {};
   const children: QueryNode[] = [];
   for (const child of node.children) {
-    const result = extractView(child);
-    if (result.view) view = result.view;
-    if (result.node) children.push(result.node);
+    const { node: rest, view, sort } = extractOptions(child);
+    if (view) options.view = view;
+    if (sort) options.sort = sort;
+    if (rest) children.push(rest);
   }
-  if (children.length === 0) return { view };
-  if (children.length === 1) return { node: children[0], view };
-  return { node: { type: node.type, children }, view };
+  if (children.length === 0) return options;
+  if (children.length === 1) return { ...options, node: children[0] };
+  return { ...options, node: { type: node.type, children } };
 }
 
 function normalize(node: QueryNode): PlanNode {
@@ -731,6 +762,8 @@ export interface QueryPlan {
   profileLookup: string[];
   /** view: display mode, never part of the filter */
   view?: string;
+  /** sort: order, never part of the filter; newest first when unset */
+  sort?: SortOrder;
   /** Kinds every branch is limited to, or empty when any kind can match */
   kinds: number[];
   /** MIME types every branch is limited to, or empty */
@@ -936,12 +969,13 @@ function sharedValues(lists: (string[] | number[] | undefined)[]): string[] {
  */
 export function planQuery(query: string, options: PlanOptions = {}): QueryPlan {
   const tree = parseQueryTree(query);
-  const { node, view } = extractView(tree);
+  const { node, view, sort } = extractOptions(tree);
 
   const plan: QueryPlan = {
     branches: [],
     profileLookup: [],
     view,
+    sort,
     kinds: [],
     mimeTypes: [],
     needsSearch: false,

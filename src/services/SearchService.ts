@@ -2,6 +2,7 @@ import type { ProfilePointer } from "nostr-tools/nip19";
 import { planQuery, resolvePlan, tryPlanQuery } from "./QueryPlanner";
 import { getLookupProviders } from "./ConfigService";
 import { createTimelineFeed, type TimelineFeed } from "./TimelineFeed";
+import { createAscendingFeed } from "./AscendingFeed";
 
 // Cache for search support status
 let searchSupported: boolean | null = null;
@@ -79,7 +80,10 @@ export async function searchFeed(query: string): Promise<TimelineFeed> {
   console.log(`Searching for: "${query}"`);
   console.log("Generated filters:", filters);
 
-  return createTimelineFeed(filters, { cap: plan.limit });
+  // sort:old walks forward from the oldest match instead of back from the newest
+  return plan.sort === "old"
+    ? createAscendingFeed(filters, { cap: plan.limit })
+    : createTimelineFeed(filters, { cap: plan.limit });
 }
 
 // Search for profiles using the configured lookup providers

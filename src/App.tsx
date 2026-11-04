@@ -15,6 +15,7 @@ import SearchWarning from "./componnts/SearchWarning";
 import ProfileLookupResults from "./componnts/ProfileLookupResults";
 import ConfigModal from "./componnts/ConfigModal";
 import Lightbox from "./componnts/Lightbox";
+import EventDetails from "./componnts/EventDetails";
 import { SearchProvider } from "./context/SearchContext";
 import {
   isSearchSupported,
@@ -411,6 +412,7 @@ function App() {
         </div>
       </div>
       <Lightbox />
+      <EventDetails />
     </SearchProvider>
   );
 }
