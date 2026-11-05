@@ -1,5 +1,93 @@
 @import "tailwindcss";
-@plugin "daisyui";
+@plugin "daisyui" {
+  /* Re-implemented below: Lightning CSS can't parse daisyUI's relative
+     selectors inside @scope and silently drops them from the build. */
+  exclude: join;
+}
+
+/* daisyUI 5.7.50 `join` utility, with `> :where(a, b)` inside @scope rewritten
+   as the equivalent `:where(:scope > a, :scope > b)` */
+@layer utilities {
+  .join {
+    --join-ss: 0;
+    --join-se: 0;
+    --join-es: 0;
+    --join-ee: 0;
+    --join-ml: 0;
+    --join-mt: 0;
+    --join-v: 0;
+    --join-h: 1;
+    align-items: stretch;
+    display: inline-flex;
+  }
+  @scope (.join) {
+    :where(:scope > :focus, :scope > :has(:focus)) {
+      z-index: 2;
+    }
+    @media (hover: hover) {
+      :where(:scope > .btn:hover, :scope > :has(.btn:hover)) {
+        z-index: 1;
+      }
+    }
+    :where(:scope > :first-child) {
+      --join-ss: var(--radius-field);
+      --join-se: calc(var(--radius-field) * var(--join-v));
+      --join-es: calc(var(--radius-field) * var(--join-h));
+      --join-ee: 0;
+    }
+    :where(:scope > :last-child) {
+      --join-ss: 0;
+      --join-se: calc(var(--radius-field) * var(--join-h));
+      --join-es: calc(var(--radius-field) * var(--join-v));
+      --join-ee: var(--radius-field);
+    }
+    :where(:scope > :only-child) {
+      --join-ss: var(--radius-field);
+      --join-se: var(--radius-field);
+      --join-es: var(--radius-field);
+      --join-ee: var(--radius-field);
+    }
+    :where(:scope > :not(:first-child)) {
+      --join-ml: calc(var(--border, 1px) * -1 * var(--join-h));
+      --join-mt: calc(var(--border, 1px) * -1 * var(--join-v));
+    }
+  }
+  .join-item {
+    @layer daisyui.l1.l2.l3.l4 {
+      & > * {
+        --join-ss: initial;
+        --join-se: initial;
+        --join-es: initial;
+        --join-ee: initial;
+      }
+    }
+    border-style: solid;
+    border-width: var(--border, 1px);
+    border-start-start-radius: var(--join-ss);
+    border-start-end-radius: var(--join-se);
+    border-end-end-radius: var(--join-ee);
+    border-end-start-radius: var(--join-es);
+    &:not(:disabled, [disabled], .btn-disabled) {
+      margin-block-start: var(--join-mt, 0);
+      margin-inline-start: var(--join-ml, 0);
+    }
+    &:is(:disabled, [disabled], .btn-disabled) {
+      border-width: var(--border, 1px);
+      border-inline-end-width: calc(var(--border, 1px) * var(--join-v));
+      border-block-end-width: calc(var(--border, 1px) * var(--join-h));
+    }
+  }
+  .join-vertical {
+    --join-v: 1;
+    --join-h: 0;
+    flex-direction: column;
+  }
+  .join-horizontal {
+    --join-v: 0;
+    --join-h: 1;
+    flex-direction: row;
+  }
+}
 
 /* Line clamp utilities */
 .line-clamp-2 {

@@ -11,8 +11,8 @@ importers:
         specifier: ^1.30.0
         version: 1.30.0(zod@4.6.7)
       "@contextvm/sdk":
-        specifier: ^0.13.17
-        version: 0.13.17(nostr-wasm@0.1.0)(typescript@7.0.2)
+        specifier: ^0.14.3
+        version: 0.14.3(nostr-wasm@0.1.0)(typescript@7.0.2)
       applesauce-common:
         specifier: ^7.0.0
         version: 7.0.0(nostr-wasm@0.1.0)(typescript@7.0.2)
@@ -238,10 +238,10 @@ packages:
     peerDependencies:
       zod: ^3.25 || ^4.0
 
-  "@contextvm/sdk@0.13.17":
+  "@contextvm/sdk@0.14.3":
     resolution:
       {
-        integrity: sha512-SbEpKxT3e4ul3drJYH3ls96jEjRpi1x5d552wWkkF6SUbSqgZ6jKqVL/2/8dsplaetFzab/iFIRCZHPCcrnH5g==,
+        integrity: sha512-BpOPlBVCwGm1wPsTNz2lpnl2C6HqNvTgs7WwqUFTzkHsaKUQyAy37Q3/CPikV8mGArcAW1kATdDAEeLVlsUoSQ==,
       }
     engines: { bun: ">=1.2.0" }
 
@@ -2687,7 +2687,7 @@ snapshots:
       zod: 4.6.7
       zod-to-json-schema: 3.25.2(zod@4.6.7)
 
-  "@contextvm/sdk@0.13.17(nostr-wasm@0.1.0)(typescript@7.0.2)":
+  "@contextvm/sdk@0.14.3(nostr-wasm@0.1.0)(typescript@7.0.2)":
     dependencies:
       "@contextvm/mcp-sdk": 1.30.0(zod@4.6.7)
       "@noble/hashes": 2.4.0
